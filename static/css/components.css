@@ -384,10 +384,10 @@ select option {
 /* Forces buttons to sit side-by-side with a gap */
 .table td:last-child {
   display: flex;
-  gap: 0.75rem; 
+  gap: 0.75rem;
   align-items: center;
   white-space: nowrap;
-  border-bottom: 0; 
+  border-bottom: 0;
 }
 
 /* Ensure buttons don't wrap on mobile */
@@ -415,7 +415,7 @@ select option {
   height: 40px; /* Explicit height for calculations */
   line-height: 40px; /* Vertically center text */
   z-index: 10000;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   box-sizing: border-box;
 }
 
@@ -441,7 +441,7 @@ select option {
   right: 0;
   bottom: 0;
   background-color: var(--bg-input);
-  transition: .4s;
+  transition: 0.4s;
   border: 1px solid var(--border);
 }
 
@@ -453,7 +453,7 @@ select option {
   left: 2px;
   bottom: 2px;
   background-color: var(--text-muted);
-  transition: .4s;
+  transition: 0.4s;
 }
 
 input:checked + .slider {

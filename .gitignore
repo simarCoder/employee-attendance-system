@@ -23,6 +23,7 @@ dist/
 # ==========================
 db/attendance.db
 db/attendance_old.db
+*.db
 
 # ==========================
 # RUNTIME FOLDERS

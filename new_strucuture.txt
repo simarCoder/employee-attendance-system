@@ -1,0 +1,60 @@
+DASHBOARD
+
+EMPLOYEES
+├── Employee List
+├── Add Employee
+├── Employee Profile
+├── Documents
+├── Departments
+└── Designations
+
+ATTENDANCE
+├── Live Attendance
+├── Daily Attendance
+├── Monthly Attendance
+├── Attendance Corrections
+├── Late Arrivals
+├── Early Departures
+├── Overtime
+└── Reports
+
+DEVICES
+├── Device List
+├── Add Device
+├── Device Status
+├── Sync Status
+└── Sync Logs
+
+SHIFTS
+├── Shift Definitions
+├── Shift Assignment
+└── Shift Calendar
+
+LEAVE
+├── Leave Types
+├── Leave Requests
+├── Approval
+└── Leave Balance
+
+PAYROLL
+├── Salary Structure
+├── Payroll Period
+├── Calculate Payroll
+├── Review
+├── Lock Payroll
+└── Payslips
+
+REPORTS
+├── Attendance
+├── Payroll
+├── Leave
+├── Overtime
+└── Employee Reports
+
+SETTINGS
+├── Company
+├── Users
+├── Roles
+├── Holidays
+├── Policies
+└── Audit Logs

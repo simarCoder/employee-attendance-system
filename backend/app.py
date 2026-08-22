@@ -4,7 +4,19 @@ import signal
 import time
 import threading
 import webbrowser
-from flask import Flask, request, jsonify, render_template, url_for, send_from_directory
+from datetime import datetime
+from flask import (
+    Flask,
+    request,
+    jsonify,
+    render_template,
+    url_for,
+    send_from_directory,
+    session,
+    redirect,
+)
+import secrets
+from functools import wraps
 from backend.utils.security import decrypt_password
 
 def open_browser():
@@ -29,6 +41,7 @@ from backend.services.employee import (
     add_employee,
     get_all_employees,
     update_monthly_salary,
+    update_employee,
     deactivate_employee,
     delete_employee,
     get_employee_by_id
@@ -38,13 +51,16 @@ from backend.services.employee import (
 from backend.services.attendance import (
     check_in,
     check_out,
-    get_attendance_by_employee
+    get_attendance_by_employee,
+    get_attendance_by_date,
+    get_attendance_by_range
 )
 
 # ---SALARY IMPORT---
 from backend.services.salary import (
     generate_salary,
     get_salary,
+    get_salary_records,
     update_salary_details
 )
 
@@ -60,8 +76,27 @@ from backend.services.settings import (
     get_subscription_expiry_encrypted,
     create_database_backup,
     get_demo_mode_status, # NEW
-    update_demo_mode      # NEW
+    update_demo_mode,      # NEW
+    get_working_days,
+    update_working_days,
+    get_secureye_config,
+    update_secureye_config
 )
+
+
+# ---DEVICE API ---
+from backend.services.secureye_attendance import sync_secureye
+
+
+# ---MAPPER FUNCTION import ----
+from backend.services.biometric import (
+    assign_device_to_employee,
+    get_device_mappings,
+    remove_device_mapping
+)
+
+from backend.devices.secureye import test_secureye_connection
+
 
 # ---------------------------------------------------------
 # PATH CONFIGURATION
@@ -88,11 +123,194 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 # Initialize DB (and fix passwords)
 employee_db()
 
+
+#-------------------------
+# DEVICE ROUTES
+# -------------------------
+@app.route("/attendance/device-sync", methods=["POST"])
+def device_sync():
+
+    try:
+
+        result = sync_secureye()
+
+        return {
+            "success": True,
+            **result
+        }, 200
+
+    except Exception as exc:
+
+        print("Secureye sync error:", exc)
+
+        return {
+            "success": False,
+            "error": str(exc)
+        }, 500
+
+# -------------------------
+# API ATTENDANCE ROUTES
+# -------------------------
+@app.route("/api/attendance", methods=["GET"])
+def api_attendance():
+    try:
+        target_date = request.args.get("date")
+
+        if not target_date:
+            target_date = datetime.now().strftime("%Y-%m-%d")
+
+        records = get_attendance_by_date(target_date)
+
+        return jsonify({
+            "success": True,
+            "date": target_date,
+            "records": records
+        })
+
+    except Exception as exc:
+        return jsonify({
+            "success": False,
+            "error": str(exc)
+        }), 500
+
+
+@app.route("/api/attendance/range", methods=["GET"])
+def api_attendance_range():
+    try:
+        start_date = request.args.get("start_date")
+        end_date = request.args.get("end_date")
+
+        if not start_date or not end_date:
+            return jsonify({
+                "success": False,
+                "error": "start_date and end_date are required."
+            }), 400
+
+        records = get_attendance_by_range(
+            start_date,
+            end_date
+        )
+
+        return jsonify({
+            "success": True,
+            "start_date": start_date,
+            "end_date": end_date,
+            "records": records
+        })
+
+    except Exception as exc:
+        return jsonify({
+            "success": False,
+            "error": str(exc)
+        }), 500
+
+
+
+# -------------------------
+# MAPPING  ROUTES
+# -------------------------
+        
+@app.route("/biometric/mappings", methods=["GET"])
+def get_biometric_mappings_route():
+    try:
+        mappings = get_device_mappings()
+
+        result = []
+
+        for row in mappings:
+            result.append({
+                "device_id": row[0],
+                "device_card_id": row[1],
+                "employee_id": row[2],
+                "name": row[3],
+                "role": row[4]
+            })
+
+        return jsonify({
+            "success": True,
+            "mappings": result
+        })
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500 
+
+
+@app.route("/biometric/mapping", methods=["POST"])
+def assign_biometric_mapping_route():
+    data = request.json or {}
+
+    device_card_id = data.get("device_card_id")
+    employee_id = data.get("employee_id")
+
+    if device_card_id is None or employee_id is None:
+        return jsonify({
+            "success": False,
+            "error": "Device Card ID and Employee ID are required."
+        }), 400
+
+    try:
+        device_card_id = int(device_card_id)
+        employee_id = int(employee_id)
+
+        result = assign_device_to_employee(
+            device_card_id=device_card_id,
+            employee_id=employee_id
+        )
+
+        return jsonify(result)
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 400
+
+
+@app.route("/biometric/mapping", methods=["DELETE"])
+def remove_biometric_mapping_route():
+    data = request.json or {}
+
+    device_card_id = data.get("device_card_id")
+
+    if device_card_id is None:
+        return jsonify({
+            "success": False,
+            "error": "Device Card ID is required."
+        }), 400
+
+    try:
+        result = remove_device_mapping(
+            int(device_card_id)
+        )
+
+        return jsonify(result)
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 400
+
+
+
+
 # -------------------------
 # VIEW ROUTES
 # -------------------------
 @app.route("/")
 def home():
+        # New secret every time Flask starts.
+    # This intentionally invalidates every previous session.
+    app.secret_key = secrets.token_hex(32)
+
+    app.config.update(
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SAMESITE="Lax",
+        SESSION_COOKIE_SECURE=False,   # localhost / HTTP
+    )
     encrypted_expiry = get_subscription_expiry_encrypted()
     expiry_date = None
     if encrypted_expiry:
@@ -102,7 +320,45 @@ def home():
     demo_mode = get_demo_mode_status()
     return render_template("login.html", expiry_date=expiry_date, demo_mode=demo_mode)
 
+def login_required(view_func):
+    @wraps(view_func)
+    def wrapped_view(*args, **kwargs):
+        if "user_id" not in session:
+            return jsonify({
+                "error": "AUTH_REQUIRED",
+                "message": "Please login again."
+            }), 401
+
+        return view_func(*args, **kwargs)
+
+    return wrapped_view
+
+
+def role_required(*allowed_roles):
+    def decorator(view_func):
+        @wraps(view_func)
+        def wrapped_view(*args, **kwargs):
+            if "user_id" not in session:
+                return jsonify({
+                    "error": "AUTH_REQUIRED",
+                    "message": "Please login again."
+                }), 401
+
+            if session.get("role") not in allowed_roles:
+                return jsonify({
+                    "error": "FORBIDDEN",
+                    "message": "You do not have permission."
+                }), 403
+
+            return view_func(*args, **kwargs)
+
+        return wrapped_view
+
+    return decorator
+
+
 @app.route("/dashboard")
+@login_required
 def dashboard():
     # Pass demo mode status to template
     demo_mode = get_demo_mode_status()
@@ -141,31 +397,113 @@ def login_route():
         return jsonify({"error": "Invalid credentials"}), 401
 
     if role != 'head':
+        # A new installation has no subscription expiry.
+        # Normal users cannot login until the developer activates it.
         encrypted_expiry = get_subscription_expiry_encrypted()
+
+        if not encrypted_expiry:
+            return jsonify({
+                "error": "SUBSCRIPTION EXPIRED",
+                "message": "Subscription is not activated. Please contact the Developer."
+            }), 403
+
         is_active, expiry_str = is_subscription_active(encrypted_expiry)
-        
+
         if not is_active:
             return jsonify({
                 "error": "SUBSCRIPTION EXPIRED",
                 "message": f"License expired on {expiry_str}. Please contact the Developer to renew."
             }), 403
 
+    session.clear()
+
+    session["user_id"] = user_id
+    session["role"] = role
+
     return jsonify({
+        "success": True,
         "user_id": user_id,
         "role": role
     })
+    
+    
+    
+@app.route("/auth/session", methods=["GET"])
+@login_required
+def get_current_session():
+    return jsonify({
+        "authenticated": True,
+        "user_id": session["user_id"],
+        "role": session["role"]
+    })
+
+@app.route("/logout", methods=["POST"])
+def logout():
+    session.clear()
+
+    return jsonify({
+        "success": True,
+        "message": "Logged out successfully."
+    })
+
 
 # -------------------------
 # EMPLOYEE ROUTES
 # -------------------------
 @app.route("/employee/add", methods=["POST"])
 def add_employee_route():
-    data = request.json
+    data = request.json or {}
+
     try:
-        add_employee(data.get("name"), data.get("role"), data.get("phone"), data.get("address"),data.get("monthly_salary"))
-        return jsonify({"message": "Employee added successfully"})
+        add_employee(
+            name=data.get("name"),
+            role=data.get("role"),
+            phone=data.get("phone"),
+            address=data.get("address"),
+            monthly_salary=data.get("monthly_salary"),
+
+            salary_type=data.get(
+                "salary_type",
+                "monthly"
+            ),
+
+            daily_hours=data.get(
+                "daily_hours",
+                8
+            ),
+
+            expected_check_in=data.get(
+                "expected_check_in"
+            ),
+
+            expected_check_out=data.get(
+                "expected_check_out"
+            ),
+
+            late_grace_minutes=data.get(
+                "late_grace_minutes",
+                0
+            ),
+
+            overtime_enabled=data.get(
+                "overtime_enabled",
+                0
+            ),
+
+            overtime_rate=data.get(
+                "overtime_rate",
+                1.5
+            )
+        )
+
+        return jsonify({
+            "message": "Employee added successfully"
+        })
+
     except Exception as e:
-        return jsonify({"message": str(e)}), 400
+        return jsonify({
+            "message": str(e)
+        }), 400
 
 @app.route("/employees", methods=["GET"])
 def get_employees_route():
@@ -182,6 +520,39 @@ def get_employees_route():
         "status": emp[6]
     })
     return jsonify(result)
+
+@app.route("/employee/update", methods=["POST"])
+@role_required("admin", "head")
+def update_employee_route():
+    data = request.json or {}
+
+    try:
+        update_employee(
+            employee_id=data.get("employee_id"),
+            name=data.get("name"),
+            role=data.get("role"),
+            phone=data.get("phone"),
+            address=data.get("address"),
+            monthly_salary=data.get("monthly_salary"),
+            salary_type=data.get("salary_type", "monthly"),
+            daily_hours=data.get("daily_hours", 8),
+            expected_check_in=data.get("expected_check_in"),
+            expected_check_out=data.get("expected_check_out"),
+            late_grace_minutes=data.get("late_grace_minutes", 0),
+            overtime_enabled=data.get("overtime_enabled", 0),
+            overtime_rate=data.get("overtime_rate", 1)
+        )
+
+        return jsonify({
+            "success": True,
+            "message": "Employee updated successfully"
+        })
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        }), 400
 
 @app.route("/employee/update_salary", methods=["POST"])
 def update_salary_route():
@@ -225,15 +596,25 @@ def get_employee_profile(employee_id):
     if not emp:
         return jsonify({"error": "Employee not found"}), 404
     return jsonify({
-        "id": emp[0],
-        "name": emp[1],
-        "role": emp[2],
-        "phone": emp[3],
-        "address": emp[4],
-        "monthly_salary": emp[5],
-        "status": emp[6]
-    })
-
+    "id": emp[0],
+    "name": emp[1],
+    "role": emp[2],
+    "phone": emp[3],
+    "address": emp[4],
+    "monthly_salary": emp[5],
+    "hourly_rate": emp[6],
+    "salary_type": emp[7],
+    "daily_hours": emp[8],
+    "expected_check_in": emp[9],
+    "expected_check_out": emp[10],
+    "late_grace_minutes": emp[11],
+    "overtime_enabled": emp[12],
+    "overtime_rate": emp[13],
+    "status": emp[14]
+})
+    
+    
+    
 # -------------------------
 # ATTENDANCE ROUTES
 # -------------------------
@@ -300,18 +681,42 @@ def generate_salary_route():
 def get_salary_route():
     employee_id = request.args.get("employee_id", type=int)
     month = request.args.get("month")
+
+    if employee_id is None or not month:
+        return jsonify({
+            "error": "employee_id and month are required"
+        }), 400
+
     salary = get_salary(employee_id, month)
+
     if not salary:
         return jsonify({"error": "Salary not found"}), 404
 
-    return jsonify({
-        "employee_id": employee_id,
-        "month": salary[0],
-        "total_hours": salary[1],
-        "hourly_rate": salary[2],
-        "total_salary": salary[3],
-        "locked": salary[4]
-    })
+    return jsonify(salary)
+
+
+@app.route("/salary/records", methods=["GET"])
+def get_salary_records_route():
+    employee_id = request.args.get("employee_id", type=int)
+    month = request.args.get("month")
+
+    try:
+        records = get_salary_records(
+            employee_id=employee_id,
+            month=month
+        )
+
+        return jsonify({
+            "success": True,
+            "count": len(records),
+            "records": records
+        })
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
 
 @app.route("/salary/update", methods=["POST"])
 def update_generated_salary_route():
@@ -394,6 +799,122 @@ def delete_document_route_api():
 def uploaded_file(filename):
     return send_from_directory(UPLOAD_FOLDER, filename)
 
+
+# -------------------------
+# SECUREYE DEVICE CONFIG
+# -------------------------
+
+def require_developer():
+    """
+    Developer-only authorization.
+
+    The current application uses the 'head' role
+    as the highest-level/developer account.
+    """
+
+    user_id = request.headers.get("X-User-ID")
+
+    if not user_id:
+        return False
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT role
+        FROM users
+        WHERE user_id = ?
+    """, (user_id,))
+
+    row = cursor.fetchone()
+
+    cursor.close()
+    conn.close()
+
+    return row is not None and row[0] == "head"
+
+
+@app.route("/settings/secureye", methods=["GET"])
+def get_secureye_settings_route():
+
+    if not require_developer():
+        return jsonify({
+            "success": False,
+            "error": "Developer access required."
+        }), 403
+
+    try:
+        config = get_secureye_config()
+
+        return jsonify({
+            "success": True,
+            **config
+        })
+
+    except Exception as exc:
+        return jsonify({
+            "success": False,
+            "error": str(exc)
+        }), 500
+
+
+@app.route("/settings/secureye", methods=["POST"])
+def update_secureye_settings_route():
+
+    if not require_developer():
+        return jsonify({
+            "success": False,
+            "error": "Developer access required."
+        }), 403
+
+    try:
+        data = request.get_json() or {}
+
+        ip = data.get("ip")
+        port = data.get("port")
+        timeout = data.get("timeout")
+
+        update_secureye_config(
+            ip,
+            port,
+            timeout
+        )
+
+        return jsonify({
+            "success": True,
+            "message": "Secureye configuration saved."
+        })
+
+    except Exception as exc:
+        return jsonify({
+            "success": False,
+            "error": str(exc)
+        }), 400     
+
+@app.route("/settings/secureye/test", methods=["POST"])
+def test_secureye_connection_route():
+
+    if not require_developer():
+        return jsonify({
+            "success": False,
+            "error": "Developer access required."
+        }), 403
+
+    try:
+        result = test_secureye_connection()
+
+        return jsonify(result), 200
+
+    except Exception as exc:
+        print("Secureye connection test error:", exc)
+
+        return jsonify({
+            "success": False,
+            "error": str(exc)
+        }), 500
+
+
+
 # -------------------------
 # SETTINGS & RENEWAL ROUTES
 # -------------------------
@@ -412,6 +933,50 @@ def update_hours_route():
         return jsonify({"message": "Working hours updated"})
     except Exception as e:
         return jsonify({"message": str(e)}), 400
+    
+
+@app.route("/settings/working-days", methods=["GET"])
+def get_working_days_route():
+    try:
+        days = get_working_days()
+
+        return jsonify({
+            "success": True,
+            "days": days
+        })
+
+    except Exception as e:
+        print("Get working days error:", e)
+
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        }), 500
+
+
+@app.route("/settings/working-days", methods=["POST"])
+def update_working_days_route():
+    try:
+        data = request.get_json() or {}
+
+        days = data.get("days")
+
+        update_working_days(days)
+
+        return jsonify({
+            "success": True,
+            "message": "Working days updated successfully"
+        })
+
+    except Exception as e:
+        print("Update working days error:", e)
+
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        }), 400
+
+
 
 @app.route("/settings/backup", methods=["POST"])
 def backup_db_route():
@@ -472,6 +1037,41 @@ def update_renewal_route():
         return jsonify({"message": "Subscription renewed successfully"})
     except Exception as e:
         return jsonify({"message": str(e)}), 400
+    
+    
+@app.route("/api/settings/working-days", methods=["GET"])
+def api_get_working_days():
+    try:
+        return jsonify({
+            "success": True,
+            "days": get_working_days()
+        })
+    except Exception as exc:
+        return jsonify({
+            "success": False,
+            "error": str(exc)
+        }), 500
+
+@app.route("/api/settings/working-days", methods=["POST"])
+def api_update_working_days():
+    try:
+        data = request.get_json() or {}
+
+        days = data.get("days", [])
+
+        update_working_days(days)
+
+        return jsonify({
+            "success": True,
+            "message": "Working days updated successfully."
+        })
+
+    except Exception as exc:
+        return jsonify({
+            "success": False,
+            "error": str(exc)
+        }), 500
+
 
 # -------------------------
 # DEMO MODE ROUTES (NEW)
@@ -508,5 +1108,9 @@ def shutdown_server():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    threading.Timer(1.0, open_browser).start()
+    # threading.Timer(1.0, open_browser).start()
     app.run(host="127.0.0.1", port=5000, debug=False, use_reloader=False)
+    # ---------------------------------------------------------
+    # SESSION CONFIGURATION
+    # ---------------------------------------------------------
+

@@ -122,6 +122,31 @@ function formatTime12Hour(timeStr) {
   return `${hours}:${minutes} ${suffix}`;
 }
 
+function formatDuration(minutes) {
+  if (
+    minutes === null ||
+    minutes === undefined ||
+    Number.isNaN(Number(minutes))
+  ) {
+    return "-";
+  }
+
+  minutes = Math.max(0, Math.round(Number(minutes)));
+
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+
+  if (hours === 0) {
+    return `${mins}m`;
+  }
+
+  if (mins === 0) {
+    return `${hours}h`;
+  }
+
+  return `${hours}h ${mins}m`;
+}
+
 async function loadAttendanceHistory(empId) {
   // If no ID passed, try to get from dropdown
   if (!empId) empId = document.getElementById("att-employee-select").value;
@@ -160,7 +185,7 @@ async function loadAttendanceHistory(empId) {
                         <td>${record.date}</td>
                         <td>${checkInTime}</td>
                         <td>${checkOutTime}</td>
-                        <td>${record.worked_hours ? record.worked_hours.toFixed(2) : "0.00"} hrs</td>
+                        <td>${formatDuration(record.worked_minutes)}</td>
                     `;
           tbody.appendChild(tr);
         });
@@ -184,3 +209,73 @@ if (attSelect) {
     loadAttendanceHistory(e.target.value);
   });
 }
+
+async function syncSecureye() {
+  const button = document.getElementById("secureye-sync-btn");
+
+  if (!button) return;
+
+  const originalText = button.innerText;
+
+  button.disabled = true;
+  button.innerText = "Fetching...";
+
+  try {
+    const response = await fetch(`${API_BASE}/attendance/device-sync`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || "Device sync failed");
+    }
+
+    if (window.showToast) {
+      showToast(
+        `Sync complete. ${data.inserted} new, ${data.skipped} duplicate.`,
+        "success",
+      );
+    } else {
+      alert(
+        `Sync complete.\n` +
+          `New: ${data.inserted}\n` +
+          `Duplicates: ${data.skipped}`,
+      );
+    }
+    // Refresh attendance table after biometric sync
+    const empId = document.getElementById("att-employee-select")?.value;
+
+    if (empId) {
+      await loadAttendanceHistory(empId);
+    }
+  } catch (error) {
+    console.error("Secureye sync failed:", error);
+
+    if (window.showToast) {
+      showToast("Secureye sync failed: " + error.message, "error");
+    } else {
+      alert("Secureye sync failed: " + error.message);
+    }
+  } finally {
+    button.disabled = false;
+    button.innerText = originalText;
+  }
+}
+
+// function  DashboardAttendance() {
+//   const dateInput = document.getElementById("dashboard-attendance-date");
+
+//   const today = new Date().toISOString().split("T")[0];
+
+//   dateInput.value = today;
+
+//   dateInput.addEventListener("change", function () {
+//     loadDashboardAttendance(this.value);
+//   });
+
+//   loadDashboardAttendance(today);
+// }

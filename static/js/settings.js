@@ -3,22 +3,101 @@
  * Handles the Settings page interactions.
  */
 
-function loadSettings() {
-  // 1. Load Hours (Admin + Head)
-  fetch(`${API_BASE}/settings/hours`)
-    .then((res) => res.json())
-    .then((data) => {
-      const input = document.getElementById("setting-hours");
-      if (input) input.value = data.hours;
-    })
-    .catch((err) => console.error(err));
+// function loadSettings() {
+//   // 1. Load Hours (Admin + Head)
+//   // fetch(`${API_BASE}/settings/hours`)
+//   //   .then((res) => res.json())
+//   //   .then((data) => {
+//   //     const input = document.getElementById("setting-hours");
+//   //     if (input) input.value = data.hours;
+//   //   })
+//   //   .catch((err) => console.error(err));
 
-  // 2. Load System Users & Renewal Date (Head Only)
+//   loadWorkingDays();
+
+//   // 2. Load System Users & Renewal Date (Head Only)
+//   const role = sessionStorage.getItem("role");
+//   if (role === "head") {
+//     loadSystemUsers();
+//     loadRenewalDate();
+//     loadDemoMode(); // NEW: Load toggle state
+//   }
+// }
+
+function loadSettings() {
+  loadWorkingDays();
+
   const role = sessionStorage.getItem("role");
+
   if (role === "head") {
     loadSystemUsers();
     loadRenewalDate();
-    loadDemoMode(); // NEW: Load toggle state
+    loadDemoMode();
+    loadSecureyeConfig();
+  }
+}
+
+async function loadWorkingDays() {
+  try {
+    const response = await fetch(`${API_BASE}/settings/working-days`);
+
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+      throw new Error(data.message || "Failed to load working days");
+    }
+
+    const checkboxes = document.querySelectorAll(".working-day-checkbox");
+
+    checkboxes.forEach((checkbox) => {
+      checkbox.checked = data.days.includes(Number(checkbox.value));
+    });
+  } catch (error) {
+    console.error("Working days load failed:", error);
+  }
+}
+
+async function saveWorkingDays(event) {
+  event.preventDefault();
+
+  const checkboxes = document.querySelectorAll(".working-day-checkbox");
+
+  const days = [];
+
+  checkboxes.forEach((checkbox) => {
+    if (checkbox.checked) {
+      days.push(Number(checkbox.value));
+    }
+  });
+
+  if (days.length === 0) {
+    showToast("Select at least one working day.", "error");
+
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE}/settings/working-days`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        days: days,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+      throw new Error(data.message || "Failed to save working days");
+    }
+
+    showToast("Working days saved successfully.", "success");
+  } catch (error) {
+    console.error("Working days save failed:", error);
+
+    showToast(error.message || "Server error.", "error");
   }
 }
 
@@ -262,4 +341,208 @@ async function deleteSystemUser(userId) {
       }
     },
   );
+}
+
+// ============================================================
+// SECUREYE DEVICE CONFIGURATION
+// ============================================================
+
+function getDeveloperHeaders() {
+  const userId = sessionStorage.getItem("user_id");
+
+  return {
+    "Content-Type": "application/json",
+    "X-User-ID": userId || "",
+  };
+}
+
+async function loadSecureyeConfig() {
+  try {
+    const response = await fetch(`${API_BASE}/settings/secureye`, {
+      method: "GET",
+      headers: getDeveloperHeaders(),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || "Failed to load Secureye configuration");
+    }
+
+    const ipInput = document.getElementById("secureye-ip");
+    const portInput = document.getElementById("secureye-port");
+    const timeoutInput = document.getElementById("secureye-timeout");
+
+    if (ipInput) {
+      ipInput.value = data.ip || "";
+    }
+
+    if (portInput) {
+      portInput.value = data.port ?? 5005;
+    }
+
+    if (timeoutInput) {
+      timeoutInput.value = data.timeout ?? 10;
+    }
+  } catch (error) {
+    console.error("Secureye configuration load failed:", error);
+  }
+}
+
+async function saveSecureyeConfig(event) {
+  event.preventDefault();
+
+  const ip = document.getElementById("secureye-ip").value.trim();
+
+  const port = Number(document.getElementById("secureye-port").value);
+
+  const timeout = Number(document.getElementById("secureye-timeout").value);
+
+  if (!ip) {
+    showToast("Enter the Secureye IP address.", "error");
+    return;
+  }
+
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    showToast("Invalid port number.", "error");
+    return;
+  }
+
+  if (!Number.isInteger(timeout) || timeout <= 0) {
+    showToast("Invalid timeout.", "error");
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE}/settings/secureye`, {
+      method: "POST",
+      headers: getDeveloperHeaders(),
+      body: JSON.stringify({
+        ip: ip,
+        port: port,
+        timeout: timeout,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || "Failed to save configuration");
+    }
+
+    showToast("Secureye configuration saved successfully.", "success");
+  } catch (error) {
+    console.error("Secureye configuration save failed:", error);
+
+    showToast(error.message || "Server error.", "error");
+  }
+}
+
+async function testSecureyeConnection() {
+  const button = document.getElementById("secureye-test-btn");
+
+  const resultBox = document.getElementById("secureye-test-result");
+
+  const outputBox = document.getElementById("secureye-test-output");
+
+  if (!button || !resultBox || !outputBox) {
+    return;
+  }
+
+  const originalText = button.innerText;
+
+  button.disabled = true;
+  button.innerText = "Testing...";
+
+  resultBox.style.display = "block";
+
+  outputBox.innerHTML = `
+    <div style="color: var(--text-muted)">
+      Connecting to Secureye...
+    </div>
+  `;
+
+  try {
+    const response = await fetch(`${API_BASE}/settings/secureye/test`, {
+      method: "POST",
+      headers: getDeveloperHeaders(),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || "Secureye connection failed.");
+    }
+
+    let responseHtml = "";
+
+    if (data.responses) {
+      responseHtml = Object.entries(data.responses)
+        .map(
+          ([name, value]) => `
+            <div style="margin-top: 0.5rem;">
+              <strong>${name}</strong>
+              <div
+                style="
+                  font-family: monospace;
+                  font-size: 0.75rem;
+                  word-break: break-all;
+                  color: var(--text-muted);
+                  margin-top: 0.2rem;
+                "
+              >
+                ${value}
+              </div>
+            </div>
+          `,
+        )
+        .join("");
+    }
+
+    outputBox.innerHTML = `
+      <div style="color: var(--success); font-weight: 700;">
+        ✓ Device Connected
+      </div>
+
+      <div style="margin-top: 0.75rem;">
+        <strong>IP:</strong> ${data.ip}
+      </div>
+
+      <div>
+        <strong>Port:</strong> ${data.port}
+      </div>
+
+      <div>
+        <strong>Timeout:</strong> ${data.timeout}s
+      </div>
+
+      <div>
+        <strong>Record Count:</strong> ${data.record_count}
+      </div>
+
+      <div style="margin-top: 1rem;">
+        <strong>Protocol Responses</strong>
+        ${responseHtml}
+      </div>
+    `;
+
+    showToast("Secureye connection successful.", "success");
+  } catch (error) {
+    console.error("Secureye connection test failed:", error);
+
+    outputBox.innerHTML = `
+      <div style="color: var(--danger); font-weight: 700;">
+        ✗ Connection Failed
+      </div>
+
+      <div style="margin-top: 0.5rem;">
+        ${error.message || "Unable to connect to Secureye."}
+      </div>
+    `;
+
+    showToast(error.message || "Secureye connection failed.", "error");
+  } finally {
+    button.disabled = false;
+    button.innerText = originalText;
+  }
 }

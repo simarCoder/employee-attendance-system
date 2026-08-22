@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Login | OPERON HR</title>
+    <title>HR Management System | Operon Solutions</title>
 
     <!-- CSS (Converted to Jinja2) -->
     <link
@@ -33,37 +33,16 @@
     <div class="login-container">
       <div class="login-card">
         <div style="text-align: center; margin-bottom: 2rem">
-          <!-- LOGO -->
-          <img
-            src="{{ url_for('static', filename='operon.png') }}"
-            alt="Operon Logo"
-            style="width: 80px; height: auto; margin-bottom: 1rem; opacity: 0.9"
-          />
+          <div class="company-logo-circle login-logo">
+            <img
+              src="{{ url_for('static', filename='operon.png') }}"
+              alt="Operon Solutions"
+            />
+          </div>
 
-          <!-- BRANDING -->
-          <h1
-            style="
-              color: var(--primary);
-              font-size: 2rem;
-              font-weight: 800;
-              letter-spacing: 0.05em;
-              margin-bottom: 0.25rem;
-              text-transform: uppercase;
-            "
-          >
-            OPERON
-          </h1>
-          <p
-            style="
-              color: var(--text-muted);
-              font-size: 0.85rem;
-              letter-spacing: 0.2em;
-              text-transform: uppercase;
-              font-weight: 500;
-            "
-          >
-            A Software Company
-          </p>
+          <h1 class="login-company-name">OPERON SOLUTIONS</h1>
+
+          <p class="login-product-name">HR MANAGEMENT SYSTEM</p>
         </div>
 
         <form onsubmit="handleLogin(event)">

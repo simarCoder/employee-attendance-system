@@ -111,6 +111,7 @@
   cursor: pointer;
   font-size: 0.95rem;
   font-weight: 500;
+  margin: 0.15rem 0;
 }
 
 .nav-item:hover {
@@ -287,4 +288,223 @@ body:has(.demo-banner) .theme-toggle-btn {
 
 body:has(.demo-banner) #toast-container {
   top: calc(2rem + 40px);
+}
+
+.brand-block {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+.brand-company {
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--text-main);
+}
+
+.brand-product {
+  margin-top: 0.35rem;
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+.login-logo {
+  width: 76px;
+  height: 76px;
+  margin-bottom: 1rem;
+}
+
+.login-company-name {
+  color: var(--primary);
+  font-size: 1.65rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  margin: 0;
+}
+
+.login-product-name {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  font-weight: 600;
+  margin-top: 0.45rem;
+}
+
+.mobile-brand {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+.mobile-company {
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+
+.mobile-product {
+  font-size: 0.55rem;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  margin-top: 0.2rem;
+}
+
+/* =========================================================
+   OPERON SOLUTIONS SIDEBAR FOOTER
+   ========================================================= */
+
+.sidebar-footer {
+  margin-top: auto;
+  padding: 1.25rem 1rem 1rem;
+  border-top: 1px solid var(--border);
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  text-align: center;
+}
+
+/* Logo */
+
+.footer-logo {
+  width: 54px;
+  height: 54px;
+
+  border-radius: 50%;
+  overflow: hidden;
+
+  background: #ffffff;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  margin-bottom: 0.65rem;
+  border-color: black;
+}
+
+.footer-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 5px;
+}
+
+/* Branding */
+
+.footer-brand {
+  line-height: 1.15;
+  margin-bottom: 0.8rem;
+}
+
+.footer-company {
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text-main);
+}
+
+.footer-product {
+  margin-top: 0.25rem;
+
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+
+  color: var(--text-muted);
+}
+
+/* Contact */
+
+.footer-contact {
+  width: 100%;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 0.45rem;
+
+  margin-bottom: 0.8rem;
+}
+
+.footer-contact a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 0.45rem;
+
+  color: var(--text-muted);
+  text-decoration: none;
+
+  font-size: 0.72rem;
+
+  transition: color 0.2s ease;
+}
+
+.footer-contact a:hover {
+  color: var(--text-main);
+}
+
+.footer-contact a span:first-child {
+  font-size: 0.85rem;
+}
+
+/* Support */
+
+.footer-support {
+  width: 100%;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 0.4rem;
+
+  padding: 0.55rem 0.75rem;
+
+  border-radius: 8px;
+
+  background: #22c55e;
+  color: white;
+
+  text-decoration: none;
+
+  font-size: 0.75rem;
+  font-weight: 600;
+
+  box-sizing: border-box;
+
+  transition:
+    transform 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.footer-support:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+/* Copyright */
+
+.footer-copyright {
+  margin-top: 0.75rem;
+
+  color: var(--text-muted);
+
+  font-size: 0.6rem;
+
+  line-height: 1.45;
+}
+
+.exit-application {
+  margin-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.85rem;
+
+  color: #ff4d4d;
 }

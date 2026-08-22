@@ -40,6 +40,119 @@ def update_working_hours(new_hours):
     cursor.close()
     conn.close()
     recalculate_all_employee_rates()
+    
+def get_working_days():
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT setting_value
+        FROM system_settings
+        WHERE setting_key = 'working_days'
+    """)
+
+    row = cursor.fetchone()
+
+    cursor.close()
+    conn.close()
+
+    # Default: Monday-Saturday
+    if not row or not row[0]:
+        return [0, 1, 2, 3, 4, 5]
+
+    try:
+        return [
+            int(day)
+            for day in row[0].split(",")
+            if day.strip()
+        ]
+    except ValueError:
+        return [0, 1, 2, 3, 4, 5]
+
+
+def update_working_days(days):
+    if not isinstance(days, list):
+        raise ValueError("Working days must be a list")
+
+    cleaned_days = sorted(
+        set(
+            int(day)
+            for day in days
+            if 0 <= int(day) <= 6
+        )
+    )
+
+    if not cleaned_days:
+        raise ValueError(
+            "At least one working day must be selected"
+        )
+
+    value = ",".join(
+        str(day)
+        for day in cleaned_days
+    )
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        INSERT INTO system_settings (
+            setting_key,
+            setting_value
+        )
+        VALUES ('working_days', ?)
+
+        ON CONFLICT(setting_key)
+        DO UPDATE SET
+            setting_value = excluded.setting_value
+    """, (value,))
+
+    conn.commit()
+
+    cursor.close()
+    conn.close()
+
+
+def update_working_days(days):
+    """
+    days = list of Python weekday numbers.
+
+    Monday = 0
+    Tuesday = 1
+    Wednesday = 2
+    Thursday = 3
+    Friday = 4
+    Saturday = 5
+    Sunday = 6
+    """
+
+    cleaned_days = sorted(
+        set(
+            int(day)
+            for day in days
+            if 0 <= int(day) <= 6
+        )
+    )
+
+    value = ",".join(str(day) for day in cleaned_days)
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        INSERT INTO system_settings (
+            setting_key,
+            setting_value
+        )
+        VALUES ('working_days', ?)
+        ON CONFLICT(setting_key)
+        DO UPDATE SET setting_value = excluded.setting_value
+    """, (value,))
+
+    conn.commit()
+
+    cursor.close()
+    conn.close()
 
 # --- DEMO MODE LOGIC (NEW) ---
 def get_demo_mode_status():
@@ -210,3 +323,78 @@ def delete_system_user(target_user_id, current_user_id_requesting=None):
     conn.commit()
     cursor.close()
     conn.close()
+    
+    
+    
+# ========== DEVICE COONFIGURATION =====================
+def get_secureye_config():
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    keys = {
+        "secureye_ip": None,
+        "secureye_port": 5005,
+        "secureye_timeout": 10,
+    }
+
+    for key in keys:
+        cursor.execute("""
+            SELECT setting_value
+            FROM system_settings
+            WHERE setting_key = ?
+        """, (key,))
+
+        row = cursor.fetchone()
+
+        if row is not None:
+            keys[key] = row[0]
+
+    cursor.close()
+    conn.close()
+
+    return {
+        "ip": keys["secureye_ip"],
+        "port": int(keys["secureye_port"]),
+        "timeout": int(keys["secureye_timeout"]),
+    }
+
+
+def update_secureye_config(ip, port, timeout):
+    if not ip:
+        raise ValueError("Secureye IP address is required.")
+
+    try:
+        port = int(port)
+        timeout = int(timeout)
+    except (TypeError, ValueError):
+        raise ValueError("Port and timeout must be numbers.")
+
+    if not 1 <= port <= 65535:
+        raise ValueError("Port must be between 1 and 65535.")
+
+    if timeout <= 0:
+        raise ValueError("Timeout must be greater than 0.")
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    settings = {
+        "secureye_ip": str(ip).strip(),
+        "secureye_port": str(port),
+        "secureye_timeout": str(timeout),
+    }
+
+    for key, value in settings.items():
+        cursor.execute("""
+            INSERT INTO system_settings (setting_key, setting_value)
+            VALUES (?, ?)
+            ON CONFLICT(setting_key)
+            DO UPDATE SET setting_value = excluded.setting_value
+        """, (key, value))
+
+    conn.commit()
+
+    cursor.close()
+    conn.close()
+
+    return True 

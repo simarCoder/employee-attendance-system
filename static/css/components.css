@@ -476,3 +476,118 @@ input:checked + .slider:before {
 .slider.round:before {
   border-radius: 50%;
 }
+
+.company-logo-circle {
+  width: 58px;
+  height: 58px;
+  margin: 0 auto 0.65rem;
+
+  border-radius: 50%;
+  overflow: hidden;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: #ffffff;
+  border: 1px solid var(--border);
+
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+.company-logo-circle img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 7px;
+}
+
+/* =========================================================
+   EDIT EMPLOYEE MODAL
+   ========================================================= */
+
+#edit-employee-modal .modal-card {
+  box-sizing: border-box;
+}
+
+#edit-employee-modal .form-control {
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* Smaller screens */
+@media (max-width: 700px) {
+  #edit-employee-modal .modal-card {
+    width: 94vw !important;
+    max-width: 94vw !important;
+    max-height: 92vh;
+    padding: 1.5rem;
+  }
+
+  #edit-employee-modal form > div {
+    grid-template-columns: 1fr !important;
+  }
+
+  #edit-employee-modal .modal-card input,
+  #edit-employee-modal .modal-card select {
+    width: 100%;
+  }
+}
+
+/* Very small screens */
+@media (max-width: 450px) {
+  #edit-employee-modal .modal-card {
+    padding: 1.1rem;
+  }
+
+  #edit-employee-modal .modal-card h3 {
+    font-size: 1.25rem;
+  }
+}
+
+/* =========================================================
+   SALARY RECORD DETAILS ROW
+   Prevent the table action-button flex rule from
+   collapsing the colspan detail cell.
+   ========================================================= */
+
+.salary-detail-row > td {
+  display: table-cell !important;
+  width: 100%;
+  padding: 0 !important;
+  border-bottom: 0 !important;
+  white-space: normal !important;
+  vertical-align: top;
+}
+
+.salary-detail-row .salary-detail-inner {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.salary-detail-row .salary-detail-inner > div {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Detail information grid */
+.salary-detail-row .salary-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.85rem 1.5rem;
+}
+
+/* Tablet */
+@media (max-width: 1000px) {
+  .salary-detail-row .salary-detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+  .salary-detail-row .salary-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}

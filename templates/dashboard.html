@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Dashboard | HR System</title>
+    <title>HR Management System | Operon Solutions</title>
 
     <!-- CSS (Converted to Jinja2) -->
     <link
@@ -17,6 +17,11 @@
     <link
       rel="stylesheet"
       href="{{ url_for('static', filename='css/components.css') }}"
+    />
+    <link
+      rel="icon"
+      type="image/x-icon"
+      href="{{ url_for('static', filename='operon.ico') }}"
     />
   </head>
   <body>
@@ -86,7 +91,10 @@
           <line x1="3" y1="18" x2="21" y2="18"></line>
         </svg>
       </button>
-      <span class="mobile-brand">Operon HR</span>
+      <div class="mobile-brand">
+        <span class="mobile-company">OPERON SOLUTIONS</span>
+        <span class="mobile-product">HR MANAGEMENT SYSTEM</span>
+      </div>
       <button class="btn-icon" onclick="toggleTheme()">
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -135,8 +143,11 @@
       <!-- Sidebar -->
       <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
-          <!-- Branding -->
-          <span>OPERON HR</span>
+          <div class="brand-block">
+            <div class="brand-company">OPERON SOLUTIONS</div>
+            <div class="brand-product">HR MANAGEMENT SYSTEM</div>
+          </div>
+
           <button class="btn-icon mobile-only" onclick="toggleSidebar()">
             ✕
           </button>
@@ -176,103 +187,50 @@
           </div>
 
           <!-- Exit Application Item -->
-          <div
-            class="nav-item"
-            onclick="exitApplication()"
-            style="
-              color: #ff4d4d;
-              border-top: 1px solid var(--border);
-              margin-top: 1rem;
-              padding-top: 1rem;
-              cursor: pointer;
-            "
-          >
+          <div class="nav-item exit-application" onclick="exitApplication()">
             <span>🚪 Exit Application</span>
           </div>
         </nav>
 
-        <!-- Sidebar Footer (CONTACT INFO) -->
-        <div
-          class="sidebar-footer"
-          style="
-            padding: 1.5rem 1rem;
-            text-align: center;
-            border-top: 1px solid var(--border);
-          "
-        >
-          <!-- Operon Branding -->
-          <div
-            style="
-              margin-bottom: 1rem;
-              display: flex;
-              flex-direction: column;
-              align-items: center;
-            "
-          >
+        <!-- Sidebar Footer -->
+        <div class="sidebar-footer">
+          <div class="footer-logo">
             <img
               src="{{ url_for('static', filename='operon.png') }}"
-              alt="Operon"
-              style="
-                width: 36px;
-                height: auto;
-                opacity: 0.9;
-                margin-bottom: 0.5rem;
-              "
+              alt="Operon Solutions"
             />
-            <p
-              style="
-                font-size: 0.75rem;
-                color: var(--text-main);
-                font-weight: 700;
-                letter-spacing: 0.05em;
-              "
-            >
-              OPERON SOFTWARE
-            </p>
           </div>
 
-          <!-- WhatsApp Button -->
+          <div class="footer-brand">
+            <div class="footer-company">OPERON SOLUTIONS</div>
+            <!-- <div class="footer-product">HR MANAGEMENT SYSTEM</div> -->
+          </div>
+
+          <div class="footer-contact">
+            <a href="tel:+919878519609">
+              <span>☎</span>
+              <span>+91 98785 19609</span>
+            </a>
+
+            <a href="mailto:operonsolutions@gmail.com">
+              <span>✉</span>
+              <span>operonsolutions@gmail.com</span>
+            </a>
+          </div>
+
           <a
-            href="https://wa.me/919878519609?text=Hi%2C%20I%20need%20support%20with%20the%20HR%20System."
+            href="https://wa.me/919878519609"
             target="_blank"
-            class="btn"
-            style="
-              background-color: #25d366;
-              color: white;
-              width: 100%;
-              text-decoration: none;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              gap: 0.5rem;
-              font-size: 0.8rem;
-              padding: 0.5rem;
-              border-radius: 8px;
-            "
+            class="footer-support"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="14"
-              height="14"
-              fill="currentColor"
-              viewBox="0 0 16 16"
-            >
-              <path
-                d="M13.601 2.326A7.854 7.854 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.933 7.933 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.898 7.898 0 0 0 13.6 2.326zM7.994 14.521a6.573 6.573 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.557 6.557 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592z"
-              />
-            </svg>
+            <span>◉</span>
             Contact Support
           </a>
 
-          <p
-            style="
-              font-size: 0.65rem;
-              color: var(--text-muted);
-              margin-top: 1rem;
-            "
-          >
-            &copy; 2025 Operon.<br />All Rights Reserved.
-          </p>
+          <div class="footer-copyright">
+            © 2026 Operon Solutions.<br />
+            All Rights Reserved.
+          </div>
         </div>
       </aside>
 
@@ -308,6 +266,117 @@
               </div>
             </div>
           </div>
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              gap: 1rem;
+              flex-wrap: wrap;
+            "
+          >
+            <div>
+              <h3>Attendance</h3>
+
+              <p style="color: var(--text-muted); margin-top: 0.3rem">
+                View employee attendance by date.
+              </p>
+            </div>
+
+            <div
+              style="
+                display: flex;
+                gap: 0.75rem;
+                align-items: center;
+                flex-wrap: wrap;
+              "
+            >
+              <!-- VIEW MODE -->
+              <select
+                id="attendance-view-mode"
+                class="form-control"
+                style="min-width: 110px"
+              >
+                <option value="day">Day</option>
+                <option value="month">Month</option>
+                <option value="year">Year</option>
+              </select>
+
+              <!-- DAY -->
+              <div
+                id="attendance-day-controls"
+                style="display: flex; gap: 0.5rem"
+              >
+                <input
+                  type="date"
+                  id="dashboard-attendance-date"
+                  class="form-control"
+                />
+              </div>
+
+              <!-- MONTH -->
+              <div
+                id="attendance-month-controls"
+                style="display: none; gap: 0.5rem"
+              >
+                <select id="dashboard-attendance-month" class="form-control">
+                  <option value="1">January</option>
+                  <option value="2">February</option>
+                  <option value="3">March</option>
+                  <option value="4">April</option>
+                  <option value="5">May</option>
+                  <option value="6">June</option>
+                  <option value="7">July</option>
+                  <option value="8">August</option>
+                  <option value="9">September</option>
+                  <option value="10">October</option>
+                  <option value="11">November</option>
+                  <option value="12">December</option>
+                </select>
+
+                <select
+                  id="dashboard-attendance-month-year"
+                  class="form-control"
+                ></select>
+              </div>
+
+              <!-- YEAR -->
+              <div
+                id="attendance-year-controls"
+                style="display: none; gap: 0.5rem"
+              >
+                <select
+                  id="dashboard-attendance-year"
+                  class="form-control"
+                ></select>
+              </div>
+            </div>
+          </div>
+          <table class="table" style="margin-top: 1rem">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Role</th>
+                <th>Check In</th>
+                <th>Check Out</th>
+                <th>Worked Hours</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+
+            <tbody id="dashboard-attendance-body">
+              <tr>
+                <td
+                  colspan="8"
+                  style="text-align: center; color: var(--text-muted)"
+                >
+                  Loading attendance...
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </section>
 
         <!-- 2. EMPLOYEES -->
@@ -365,23 +434,126 @@
                 <div
                   style="
                     margin-top: 0.75rem;
-                    display: flex;
+                    display: grid;
+                    grid-template-columns: 1fr 1fr 1fr;
                     gap: 0.75rem;
-                    align-items: center;
                   "
                 >
+                  <select
+                    id="emp-salary-type"
+                    class="form-control minimal-input"
+                    required
+                  >
+                    <option value="monthly">Monthly Salary</option>
+                    <option value="hourly">Hourly Salary</option>
+                  </select>
+
                   <input
                     type="number"
                     id="emp-salary"
                     class="form-control minimal-input"
-                    placeholder="Monthly Salary "
+                    placeholder="Salary"
+                    min="0"
+                    step="0.01"
                     required
-                    style="flex: 1"
                   />
+
+                  <input
+                    type="number"
+                    id="emp-daily-hours"
+                    class="form-control minimal-input"
+                    placeholder="Daily Hours"
+                    min="1"
+                    max="24"
+                    step="1"
+                    value="8"
+                    required
+                  />
+                </div>
+
+                <div
+                  style="
+                    margin-top: 0.75rem;
+                    display: grid;
+                    grid-template-columns: 1fr 1fr 1fr;
+                    gap: 0.75rem;
+                  "
+                >
+                  <div>
+                    <label class="form-label" for="emp-check-in">
+                      Expected Check-In
+                    </label>
+
+                    <input
+                      type="time"
+                      id="emp-check-in"
+                      class="form-control minimal-input"
+                    />
+                  </div>
+
+                  <div>
+                    <label class="form-label" for="emp-check-out">
+                      Expected Check-Out
+                    </label>
+
+                    <input
+                      type="time"
+                      id="emp-check-out"
+                      class="form-control minimal-input"
+                    />
+                  </div>
+
+                  <div>
+                    <label class="form-label" for="emp-late-grace">
+                      Late Grace (minutes)
+                    </label>
+
+                    <input
+                      type="number"
+                      id="emp-late-grace"
+                      class="form-control minimal-input"
+                      min="0"
+                      step="1"
+                      value="0"
+                    />
+                  </div>
+                </div>
+
+                <div
+                  style="
+                    margin-top: 0.75rem;
+                    display: flex;
+                    align-items: center;
+                    gap: 1rem;
+                    flex-wrap: wrap;
+                  "
+                >
+                  <label
+                    style="display: flex; align-items: center; gap: 0.5rem"
+                  >
+                    <input type="checkbox" id="emp-overtime-enabled" />
+                    Enable Overtime
+                  </label>
+
+                  <input
+                    type="number"
+                    id="emp-overtime-rate"
+                    class="form-control minimal-input"
+                    placeholder="OT Multiplier"
+                    min="0.1"
+                    step="0.1"
+                    value="1.5"
+                    style="max-width: 180px"
+                  />
+
                   <button
                     type="submit"
                     class="btn btn-primary"
-                    style="min-width: 120px; padding: 0.5rem 1rem"
+                    style="
+                      min-width: 120px;
+                      padding: 0.5rem 1rem;
+                      margin-left: auto;
+                    "
                   >
                     Add
                   </button>
@@ -417,6 +589,112 @@
         <section id="attendance" class="section">
           <div class="content-header">
             <h2>Attendance Tracking</h2>
+          </div>
+          <div class="card">
+            <div
+              style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 1rem;
+                flex-wrap: wrap;
+              "
+            >
+              <div>
+                <h3>Biometric Device</h3>
+                <p style="color: var(--text-muted); margin-top: 0.3rem">
+                  Fetch attendance records from Secureye.
+                </p>
+              </div>
+
+              <button
+                id="secureye-sync-btn"
+                type="button"
+                class="btn btn-primary"
+                onclick="syncSecureye()"
+              >
+                Fetch Device Records
+              </button>
+            </div>
+          </div>
+          <div class="card">
+            <div
+              style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 1rem;
+                flex-wrap: wrap;
+              "
+            >
+              <div>
+                <h3>Biometric Employee Mapping</h3>
+
+                <p style="color: var(--text-muted); margin-top: 0.3rem">
+                  Assign Secureye device IDs to employees.
+                </p>
+              </div>
+            </div>
+
+            <div
+              style="
+                display: flex;
+                gap: 1rem;
+                align-items: flex-end;
+                flex-wrap: wrap;
+                margin-top: 1rem;
+              "
+            >
+              <div style="flex: 1; min-width: 220px">
+                <label class="form-label"> Employee </label>
+
+                <select id="biometric-employee-select" class="form-control">
+                  <option value="">Select Employee</option>
+                </select>
+              </div>
+
+              <div style="width: 180px">
+                <label class="form-label"> Secureye Card ID </label>
+
+                <input
+                  type="number"
+                  id="biometric-card-id"
+                  class="form-control"
+                  min="1"
+                  placeholder="e.g. 1"
+                />
+              </div>
+
+              <button
+                type="button"
+                class="btn btn-primary"
+                onclick="assignBiometricMapping()"
+              >
+                Assign
+              </button>
+            </div>
+
+            <div class="table-container" style="margin-top: 1.5rem">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Employee</th>
+                    <th>Role</th>
+                    <th>Employee ID</th>
+                    <th>Secureye ID</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+
+                <tbody id="biometric-mapping-body">
+                  <tr>
+                    <td colspan="5" style="text-align: center">
+                      Loading mappings...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
 
           <div class="section-stack">
@@ -608,6 +886,7 @@
             </div>
           </div>
           <div id="salary-result-container" style="margin-top: 2rem"></div>
+          <div id="salary-records-container" style="margin-top: 2rem"></div>
         </section>
 
         <!-- 5. EMPLOYEE PROFILE -->
@@ -789,8 +1068,10 @@
             </form>
           </div>
 
+          <!-- WORKING SCHEDULE -->
           <div class="card" style="max-width: 500px">
-            <h3>Working Hours</h3>
+            <h3>Working Schedule</h3>
+
             <p
               style="
                 color: var(--text-muted);
@@ -798,23 +1079,201 @@
                 margin-bottom: 1rem;
               "
             >
-              Set the daily required hours for salary calculation.
+              Select the days considered working days for the organization.
+              Employee-specific working hours are configured in the employee
+              profile.
             </p>
-            <form onsubmit="saveWorkingHours(event)">
+
+            <form onsubmit="saveWorkingDays(event)">
+              <div
+                style="
+                  display: grid;
+                  grid-template-columns: 1fr 1fr;
+                  gap: 0.75rem;
+                "
+              >
+                <label style="display: flex; align-items: center; gap: 0.5rem">
+                  <input
+                    type="checkbox"
+                    class="working-day-checkbox"
+                    value="0"
+                  />
+                  Monday
+                </label>
+
+                <label style="display: flex; align-items: center; gap: 0.5rem">
+                  <input
+                    type="checkbox"
+                    class="working-day-checkbox"
+                    value="1"
+                  />
+                  Tuesday
+                </label>
+
+                <label style="display: flex; align-items: center; gap: 0.5rem">
+                  <input
+                    type="checkbox"
+                    class="working-day-checkbox"
+                    value="2"
+                  />
+                  Wednesday
+                </label>
+
+                <label style="display: flex; align-items: center; gap: 0.5rem">
+                  <input
+                    type="checkbox"
+                    class="working-day-checkbox"
+                    value="3"
+                  />
+                  Thursday
+                </label>
+
+                <label style="display: flex; align-items: center; gap: 0.5rem">
+                  <input
+                    type="checkbox"
+                    class="working-day-checkbox"
+                    value="4"
+                  />
+                  Friday
+                </label>
+
+                <label style="display: flex; align-items: center; gap: 0.5rem">
+                  <input
+                    type="checkbox"
+                    class="working-day-checkbox"
+                    value="5"
+                  />
+                  Saturday
+                </label>
+
+                <label style="display: flex; align-items: center; gap: 0.5rem">
+                  <input
+                    type="checkbox"
+                    class="working-day-checkbox"
+                    value="6"
+                  />
+                  Sunday
+                </label>
+              </div>
+
+              <button
+                type="submit"
+                class="btn btn-primary"
+                style="margin-top: 1rem"
+              >
+                Save Working Days
+              </button>
+            </form>
+          </div>
+          <!-- SECUREYE DEVICE CONFIGURATION (DEVELOPER ONLY) -->
+          <div
+            class="card head-only"
+            style="
+              max-width: 500px;
+              display: none;
+              border: 1px solid var(--primary);
+            "
+          >
+            <h3 style="color: var(--primary)">Secureye Device Configuration</h3>
+
+            <p
+              style="
+                color: var(--text-muted);
+                font-size: 0.9rem;
+                margin-bottom: 1rem;
+              "
+            >
+              Configure the network connection used to communicate with the
+              Secureye biometric device.
+            </p>
+
+            <form onsubmit="saveSecureyeConfig(event)">
               <div class="form-group">
-                <label class="form-label">Hours Per Day</label>
+                <label class="form-label" for="secureye-ip">
+                  Device IP Address
+                </label>
+
                 <input
-                  type="number"
-                  id="setting-hours"
+                  type="text"
+                  id="secureye-ip"
                   class="form-control"
-                  step="0.5"
+                  placeholder="192.168.1.224"
                   required
                 />
               </div>
-              <button type="submit" class="btn btn-primary">
-                Save Changes
-              </button>
+
+              <div class="form-group">
+                <label class="form-label" for="secureye-port">
+                  Device Port
+                </label>
+
+                <input
+                  type="number"
+                  id="secureye-port"
+                  class="form-control"
+                  min="1"
+                  max="65535"
+                  value="5005"
+                  required
+                />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="secureye-timeout">
+                  Connection Timeout (seconds)
+                </label>
+
+                <input
+                  type="number"
+                  id="secureye-timeout"
+                  class="form-control"
+                  min="1"
+                  max="120"
+                  value="10"
+                  required
+                />
+              </div>
+
+              <div
+                style="
+                  display: flex;
+                  gap: 0.75rem;
+                  margin-top: 1rem;
+                  flex-wrap: wrap;
+                "
+              >
+                <button type="submit" class="btn btn-primary">
+                  Save Configuration
+                </button>
+
+                <button
+                  type="button"
+                  class="btn"
+                  id="secureye-test-btn"
+                  onclick="testSecureyeConnection()"
+                  style="background: var(--success); color: white"
+                >
+                  Test Connection
+                </button>
+              </div>
             </form>
+
+            <!-- TEST RESULT -->
+            <div
+              id="secureye-test-result"
+              style="
+                display: none;
+                margin-top: 1rem;
+                padding: 1rem;
+                border-radius: 8px;
+                background: var(--bg-input);
+                border: 1px solid var(--border);
+              "
+            >
+              <h4 style="margin-bottom: 0.75rem">Device Information</h4>
+
+              <div id="secureye-test-output"></div>
+            </div>
           </div>
 
           <!-- BACKUP BUTTON -->
@@ -916,7 +1375,8 @@
     <script src="{{ url_for('static', filename='js/employee_profile.js') }}"></script>
     <script src="{{ url_for('static', filename='js/settings.js') }}"></script>
     <script src="{{ url_for('static', filename='js/bulk_attendance.js') }}"></script>
-
+    <script src="{{ url_for('static', filename='js/dashboard_attendance.js') }}?v=3"></script>
+    <script src="{{ url_for('static', filename='js/biometric.js') }}"></script>
     <!-- New Script -->
 
     <!-- Inline Dashboard Control -->
@@ -943,8 +1403,11 @@
         if (navElement) navElement.classList.add("active");
 
         if (sectionId === "settings") loadSettings();
-        if (sectionId === "attendance") loadBulkAttendanceList(); // Load Bulk Data
-
+        if (sectionId === "attendance") {
+          loadBulkAttendanceList();
+          loadBiometricMappings();
+          loadBiometricEmployees();
+        }
         // Close sidebar if on mobile
         if (window.innerWidth <= 768) {
           toggleSidebar();
@@ -1071,6 +1534,8 @@
 
         loadEmployees();
         loadDashboardEmployeeList();
+
+        initDashboardAttendance();
       }
 
       init();

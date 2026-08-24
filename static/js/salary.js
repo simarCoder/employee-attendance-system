@@ -1,9 +1,9 @@
-// /**
-//  * salary.js
-//  * Handles Salary Generation and Viewing.
-//  */
+//
+//   salary.js
+//   Handles Salary Generation and Viewing.
+//  
 
-// // Initialize Date Pickers on Load
+// Initialize Date Pickers on Load
 // document.addEventListener("DOMContentLoaded", () => {
 //   populateDateSelectors();
 // });
@@ -14,7 +14,7 @@
 
 //   if (!monthSelect || !yearSelect) return;
 
-//   // Populate Months
+// Populate Months
 //   const months = [
 //     "January",
 //     "February",

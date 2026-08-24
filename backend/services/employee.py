@@ -94,7 +94,8 @@ def add_employee(
     expected_check_out=None,
     late_grace_minutes=0,
     overtime_enabled=0,
-    overtime_rate=1.5
+    overtime_rate=1.5,
+    working_days=26,
 ):
     if not name:
         raise ValueError("Name is required")
@@ -107,6 +108,7 @@ def add_employee(
     late_grace_minutes = int(late_grace_minutes or 0)
     overtime_enabled = int(bool(overtime_enabled))
     overtime_rate = float(overtime_rate or 1.5)
+    working_days = float(working_days or 26)
 
     if salary_type not in ("monthly", "hourly"):
         raise ValueError("Invalid salary type")
@@ -123,11 +125,15 @@ def add_employee(
     if salary_type == "monthly":
         hourly_rate = calculate_hourly_rate(
             monthly_salary,
-            daily_hours
+            daily_hours,
+            working_days
         )
     else:
         hourly_rate = monthly_salary
-
+    
+    if working_days <= 0 or working_days > 31:
+        raise ValueError("Working days must be between 1 and 31")
+    
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -145,7 +151,8 @@ def add_employee(
             expected_check_out,
             late_grace_minutes,
             overtime_enabled,
-            overtime_rate
+            overtime_rate,
+            working_days
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
@@ -161,7 +168,8 @@ def add_employee(
         expected_check_out,
         late_grace_minutes,
         overtime_enabled,
-        overtime_rate
+        overtime_rate,
+        working_days
     ))
 
     conn.commit()
@@ -227,6 +235,7 @@ def get_employee_by_id(employee_id):
             hourly_rate,
             salary_type,
             daily_hours,
+            working_days,
             expected_check_in,
             expected_check_out,
             late_grace_minutes,
@@ -266,7 +275,7 @@ def update_monthly_salary(employee_id, new_monthly_salary):
 
     hourly_rate = calculate_hourly_rate(
         new_monthly_salary,
-        daily_hours
+        daily_hours,
     )
 
     cursor.execute("""
@@ -295,10 +304,11 @@ def update_employee(
     salary_type="monthly",
     daily_hours=8,
     expected_check_in=None,
+    working_days=26,
     expected_check_out=None,
     late_grace_minutes=0,
     overtime_enabled=0,
-    overtime_rate=1
+    overtime_rate=1,
 ):
     if not name:
         raise ValueError("Name is required")
@@ -311,6 +321,10 @@ def update_employee(
     late_grace_minutes = int(late_grace_minutes or 0)
     overtime_enabled = int(bool(overtime_enabled))
     overtime_rate = float(overtime_rate or 1)
+    working_days = float(working_days or 26)
+
+    if working_days <= 0 or working_days > 31:
+        raise ValueError("Working days must be between 1 and 31")
 
     if salary_type not in ("monthly", "hourly"):
         raise ValueError("Invalid salary type")
@@ -327,7 +341,8 @@ def update_employee(
     if salary_type == "monthly":
         hourly_rate = calculate_hourly_rate(
             monthly_salary,
-            daily_hours
+            daily_hours,
+            working_days
         )
     else:
         hourly_rate = monthly_salary
@@ -346,11 +361,12 @@ def update_employee(
             hourly_rate = ?,
             salary_type = ?,
             daily_hours = ?,
+            working_days = ?
             expected_check_in = ?,
             expected_check_out = ?,
             late_grace_minutes = ?,
             overtime_enabled = ?,
-            overtime_rate = ?
+            overtime_rate = ?,
         WHERE employee_id = ?
     """, (
         name,
@@ -361,12 +377,13 @@ def update_employee(
         hourly_rate,
         salary_type,
         daily_hours,
+        working_days,
         expected_check_in,
         expected_check_out,
         late_grace_minutes,
         overtime_enabled,
         overtime_rate,
-        employee_id
+        employee_id,
     ))
 
     if cursor.rowcount == 0:

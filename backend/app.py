@@ -493,6 +493,10 @@ def add_employee_route():
             overtime_rate=data.get(
                 "overtime_rate",
                 1.5
+            ),
+            working_days=data.get(
+                "working_days",
+                26
             )
         )
 

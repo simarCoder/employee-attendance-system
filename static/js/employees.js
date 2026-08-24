@@ -270,6 +270,9 @@ async function addEmployee(event) {
     ? 1
     : 0;
 
+  const workingDays = parseFloat(
+    document.getElementById("emp-working-days").value,
+  );
   const overtimeRate =
     parseFloat(document.getElementById("emp-overtime-rate").value) || 1.5;
 
@@ -288,6 +291,7 @@ async function addEmployee(event) {
     late_grace_minutes: lateGrace,
     overtime_enabled: overtimeEnabled,
     overtime_rate: overtimeRate,
+    working_days: workingDays,
   };
 
   console.log("Adding employee:", payload);
@@ -431,7 +435,7 @@ async function editEmployee(id, event) {
           <div
             style="
               display:grid;
-              grid-template-columns:1.2fr 1fr 1fr;
+              grid-template-columns:1.2fr 1fr 1fr 1fr;
               gap:1rem;
               margin-top:1rem;
             "
@@ -482,6 +486,20 @@ async function editEmployee(id, event) {
                 required
               >
             </div>
+            <div>
+                  <label class="form-label">Working Days</label>
+
+                  <input
+                      id="edit-emp-working-days"
+                      class="form-control"
+                      type="number"
+                      min="1"
+                      max="31"
+                      step="1"
+                      value="${emp.working_days ?? 26}"
+                      required
+                  >
+              </div>
 
           </div>
 

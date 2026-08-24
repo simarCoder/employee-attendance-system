@@ -46,7 +46,8 @@ def employee_db():
         expected_check_out TEXT,
         late_grace_minutes INTEGER NOT NULL DEFAULT 0,
         overtime_enabled INTEGER NOT NULL DEFAULT 0,
-        overtime_rate REAL NOT NULL DEFAULT 1
+        overtime_rate REAL NOT NULL DEFAULT 1,
+        working_days REAL NOT NULL
     )
     ''')
 
@@ -260,13 +261,13 @@ def employee_db():
     """, (dev_enc,))
 
     # 2. FORCE UPDATE to ensure correct encryption is applied
-    cursor.execute("""
-        UPDATE users SET password_hash = ? WHERE username = 'admin'
-    """, (admin_enc,))
+    # cursor.execute("""
+    #    UPDATE users SET password_hash = ? WHERE username = 'admin'
+    # """, (admin_enc,))
 
-    cursor.execute("""
-        UPDATE users SET password_hash = ? WHERE username = 'developer'
-    """, (dev_enc,))
+    # cursor.execute("""
+    #     UPDATE users SET password_hash = ? WHERE username = 'developer'
+    # """, (dev_enc,))
 
     # =========================
     # SYSTEM SETTINGS (New)

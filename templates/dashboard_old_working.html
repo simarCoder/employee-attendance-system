@@ -148,12 +148,8 @@
             <div class="brand-product">HR MANAGEMENT SYSTEM</div>
           </div>
 
-          <button
-            class="sidebar-collapse-btn"
-            onclick="toggleSidebarCollapse()"
-            title="Collapse sidebar"
-          >
-            <span class="sidebar-collapse-icon">‹</span>
+          <button class="btn-icon mobile-only" onclick="toggleSidebar()">
+            ✕
           </button>
         </div>
 
@@ -161,45 +157,20 @@
           <div
             class="nav-item active"
             onclick="switchSection('overview', this)"
-            title="Dashboard"
           >
-            <span class="nav-icon">⌂</span>
-            <span class="nav-label">Dashboard</span>
+            <span>Dashboard</span>
           </div>
-          <div
-            class="nav-item"
-            onclick="switchSection('employees', this)"
-            title="Employees"
-          >
-            <span class="nav-icon">♙</span>
-            <span class="nav-label">Employees</span>
+          <div class="nav-item" onclick="switchSection('employees', this)">
+            <span>Employees</span>
           </div>
-
-          <div
-            class="nav-item"
-            onclick="switchSection('attendance', this)"
-            title="Attendance"
-          >
-            <span class="nav-icon">◷</span>
-            <span class="nav-label">Attendance</span>
+          <div class="nav-item" onclick="switchSection('attendance', this)">
+            <span>Attendance</span>
           </div>
-
-          <div
-            class="nav-item"
-            onclick="switchSection('salary', this)"
-            title="Salary"
-          >
-            <span class="nav-icon">₹</span>
-            <span class="nav-label">Salary</span>
+          <div class="nav-item" onclick="switchSection('salary', this)">
+            <span>Salary</span>
           </div>
-
-          <div
-            class="nav-item"
-            onclick="openEmployeeDetailsSection(this)"
-            title="Employee Details"
-          >
-            <span class="nav-icon">▣</span>
-            <span class="nav-label">Employee Details</span>
+          <div class="nav-item" onclick="openEmployeeDetailsSection(this)">
+            <span>Employee Details</span>
           </div>
 
           <!-- SETTINGS (Hidden for Users) -->
@@ -207,29 +178,17 @@
             class="nav-item special-access-only"
             style="display: none"
             onclick="switchSection('settings', this)"
-            title="Settings"
           >
-            <span class="nav-icon">⚙</span>
-            <span class="nav-label">Settings</span>
+            <span>Settings</span>
           </div>
 
-          <div
-            class="nav-item nav-item-logout"
-            onclick="logout()"
-            title="Logout"
-          >
-            <span class="nav-icon">↪</span>
-            <span class="nav-label">Logout</span>
+          <div class="nav-item nav-item-logout" onclick="logout()">
+            <span>Logout</span>
           </div>
 
           <!-- Exit Application Item -->
-          <div
-            class="nav-item exit-application"
-            onclick="exitApplication()"
-            title="Exit Application"
-          >
-            <span class="nav-icon">⏻</span>
-            <span class="nav-label">Exit Application</span>
+          <div class="nav-item exit-application" onclick="exitApplication()">
+            <span>🚪 Exit Application</span>
           </div>
         </nav>
 
@@ -476,7 +435,7 @@
                   style="
                     margin-top: 0.75rem;
                     display: grid;
-                    grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+                    grid-template-columns: 1fr 1fr 1fr;
                     gap: 0.75rem;
                   "
                 >
@@ -518,17 +477,6 @@
                     min="1"
                     max="31"
                     step="1"
-                    required
-                  />
-
-                  <input
-                    type="number"
-                    id="emp-grace-holidays"
-                    class="form-control minimal-input"
-                    placeholder="Grace Holidays / Month"
-                    min="0"
-                    step="0.5"
-                    value="0"
                     required
                   />
                 </div>
@@ -624,28 +572,21 @@
             </div>
 
             <!-- List Table (Bottom) -->
-            <div class="employee-directory-table">
-              <table class="table employee-directory">
+            <div class="card table-container">
+              <h3>Employee Directory</h3>
+              <table class="table" style="margin-top: 1rem">
                 <thead>
-                  <tr class="directory-group-header">
-                    <th colspan="2">Identity</th>
-                    <th colspan="2">Contact</th>
-                    <th>Compensation</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-
-                  <tr class="directory-column-header">
+                  <tr>
                     <th>ID</th>
-                    <th>Employee</th>
+                    <th>Name</th>
+                    <th>Role</th>
                     <th>Phone</th>
                     <th>Address</th>
                     <th>Salary</th>
                     <th>Status</th>
-                    <th>Actions</th>
+                    <th>Action</th>
                   </tr>
                 </thead>
-
                 <tbody id="employee-table-body">
                   <!-- Populated by JS -->
                 </tbody>
@@ -1606,26 +1547,6 @@
 
         initDashboardAttendance();
       }
-
-      function toggleSidebarCollapse() {
-        const dashboard = document.querySelector(".dashboard-container");
-
-        if (!dashboard) return;
-
-        dashboard.classList.toggle("sidebar-collapsed");
-
-        const collapsed = dashboard.classList.contains("sidebar-collapsed");
-
-        localStorage.setItem("sidebarCollapsed", collapsed ? "1" : "0");
-      }
-
-      document.addEventListener("DOMContentLoaded", () => {
-        const dashboard = document.querySelector(".dashboard-container");
-
-        if (localStorage.getItem("sidebarCollapsed") === "1") {
-          dashboard.classList.add("sidebar-collapsed");
-        }
-      });
 
       init();
     </script>

@@ -47,23 +47,9 @@ def employee_db():
         late_grace_minutes INTEGER NOT NULL DEFAULT 0,
         overtime_enabled INTEGER NOT NULL DEFAULT 0,
         overtime_rate REAL NOT NULL DEFAULT 1,
-        working_days REAL NOT NULL,
-        grace_holidays REAL NOT NULL DEFAULT 0
+        working_days REAL NOT NULL
     )
     ''')
-
-    # Existing installations may not have the newer employee payroll fields.
-    cursor.execute("PRAGMA table_info(employees)")
-    existing_employee_columns = {row[1] for row in cursor.fetchall()}
-    employee_columns = {
-        "working_days": "REAL NOT NULL DEFAULT 26",
-        "grace_holidays": "REAL NOT NULL DEFAULT 0",
-    }
-    for column_name, column_definition in employee_columns.items():
-        if column_name not in existing_employee_columns:
-            cursor.execute(
-                f"ALTER TABLE employees ADD COLUMN {column_name} {column_definition}"
-            )
 
     # =========================
     # ATTENDANCE
@@ -158,11 +144,6 @@ def employee_db():
             actual_worked_minutes INTEGER,
             total_hours REAL,
             overtime_minutes INTEGER DEFAULT 0,
-            grace_holidays_snapshot REAL DEFAULT 0,
-            absence_days REAL DEFAULT 0,
-            grace_holidays_used REAL DEFAULT 0,
-            deducted_holidays REAL DEFAULT 0,
-            paid_minutes REAL DEFAULT 0,
 
             hourly_rate_snapshot REAL,
             base_salary REAL,
@@ -189,11 +170,6 @@ def employee_db():
         "expected_monthly_minutes": "REAL",
         "actual_worked_minutes": "INTEGER",
         "overtime_minutes": "INTEGER DEFAULT 0",
-        "grace_holidays_snapshot": "REAL DEFAULT 0",
-        "absence_days": "REAL DEFAULT 0",
-        "grace_holidays_used": "REAL DEFAULT 0",
-        "deducted_holidays": "REAL DEFAULT 0",
-        "paid_minutes": "REAL DEFAULT 0",
         "base_salary": "REAL",
         "overtime_pay": "REAL DEFAULT 0",
         "created_at": "TEXT",

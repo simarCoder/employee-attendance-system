@@ -591,3 +591,240 @@ input:checked + .slider:before {
     grid-template-columns: 1fr;
   }
 }
+
+/* =========================================
+   EMPLOYEE DIRECTORY
+   ========================================= */
+/* 
+.employee-directory-table {
+  width: 100%;
+  overflow-x: auto;
+} */
+
+.employee-directory {
+  min-width: 900px;
+}
+
+/* Major category headers */
+.employee-directory .directory-group-header th {
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--primary);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  text-align: center;
+  padding: 0.65rem 0.8rem;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Actual column headers */
+.employee-directory .directory-column-header th {
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  padding: 0.7rem 0.8rem;
+}
+
+/* Employee identity */
+.employee-main-cell {
+  min-width: 170px;
+}
+
+.employee-name {
+  font-weight: 650;
+  color: var(--text-main);
+  white-space: nowrap;
+}
+
+.employee-role {
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+/* ID */
+.employee-id {
+  color: var(--text-muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Phone */
+.employee-phone {
+  white-space: nowrap;
+}
+
+/* Address */
+.employee-address {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+}
+
+/* Salary */
+.employee-salary {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Status */
+.employee-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.employee-status.active {
+  background: rgba(34, 197, 94, 0.14);
+  color: var(--success);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.employee-status.inactive {
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--danger);
+  border: 1px solid rgba(239, 68, 68, 0.22);
+}
+
+/* Actions */
+/* .employee-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: nowrap;
+} */
+
+/* .employee-action-btn {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.38rem 0.6rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+} */
+
+.employee-action-btn.details {
+  background: rgba(99, 102, 241, 0.12);
+  color: var(--primary);
+  border-color: rgba(99, 102, 241, 0.25);
+}
+
+.employee-action-btn.primary {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.employee-action-btn.warning {
+  background: rgba(245, 158, 11, 0.12);
+  color: #f59e0b;
+  border-color: rgba(245, 158, 11, 0.25);
+}
+
+.employee-action-btn.danger {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
+  border-color: rgba(239, 68, 68, 0.22);
+}
+
+.employee-action-btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+}
+
+.employee-actions {
+  display: grid;
+
+  grid-template-columns: repeat(2, minmax(70px, 1fr));
+
+  gap: 0.35rem;
+
+  width: 150px;
+}
+
+/* 
+.employee-action-btn {
+  width: 100%;
+  min-width: 0;
+
+  padding: 0.38rem 0.45rem;
+
+  font-size: 0.68rem;
+  white-space: nowrap;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-radius: 18%;
+} */
+
+/* .employee-directory-table {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+} */
+
+/* .employee-directory {
+  width: 100%;
+  table-layout: fixed;
+} */
+.employee-directory-table {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.employee-directory {
+  width: 100%;
+  min-width: 900px;
+}
+
+.employee-directory th,
+.employee-directory td {
+  padding: 0.75rem 0.8rem;
+  vertical-align: middle;
+}
+
+.employee-directory th:last-child,
+.employee-directory td:last-child {
+  width: 165px;
+}
+
+.employee-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  width: 150px;
+}
+
+.employee-action-btn {
+  width: 100%;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 7px;
+  font-size: 0.72rem;
+}
+
+.employee-directory-table {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.employee-directory {
+  border-radius: 12px;
+}
+
+.employee-directory .directory-group-header th:first-child {
+  border-top-left-radius: 12px;
+}
+
+.employee-directory .directory-group-header th:last-child {
+  border-top-right-radius: 12px;
+}

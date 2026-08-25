@@ -96,7 +96,6 @@ def add_employee(
     overtime_enabled=0,
     overtime_rate=1.5,
     working_days=26,
-    grace_holidays=0,
 ):
     if not name:
         raise ValueError("Name is required")
@@ -110,7 +109,6 @@ def add_employee(
     overtime_enabled = int(bool(overtime_enabled))
     overtime_rate = float(overtime_rate or 1.5)
     working_days = float(working_days or 26)
-    grace_holidays = float(grace_holidays or 0)
 
     if salary_type not in ("monthly", "hourly"):
         raise ValueError("Invalid salary type")
@@ -135,9 +133,6 @@ def add_employee(
     
     if working_days <= 0 or working_days > 31:
         raise ValueError("Working days must be between 1 and 31")
-
-    if grace_holidays < 0:
-        raise ValueError("Grace holidays cannot be negative")
     
     conn = get_connection()
     cursor = conn.cursor()
@@ -157,10 +152,9 @@ def add_employee(
             late_grace_minutes,
             overtime_enabled,
             overtime_rate,
-            working_days,
-            grace_holidays
+            working_days
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         name,
         role,
@@ -175,8 +169,7 @@ def add_employee(
         late_grace_minutes,
         overtime_enabled,
         overtime_rate,
-        working_days,
-        grace_holidays
+        working_days
     ))
 
     conn.commit()
@@ -243,7 +236,6 @@ def get_employee_by_id(employee_id):
             salary_type,
             daily_hours,
             working_days,
-            grace_holidays,
             expected_check_in,
             expected_check_out,
             late_grace_minutes,
@@ -317,7 +309,6 @@ def update_employee(
     late_grace_minutes=0,
     overtime_enabled=0,
     overtime_rate=1,
-    grace_holidays=0,
 ):
     if not name:
         raise ValueError("Name is required")
@@ -331,13 +322,9 @@ def update_employee(
     overtime_enabled = int(bool(overtime_enabled))
     overtime_rate = float(overtime_rate or 1)
     working_days = float(working_days or 26)
-    grace_holidays = float(grace_holidays or 0)
 
     if working_days <= 0 or working_days > 31:
         raise ValueError("Working days must be between 1 and 31")
-
-    if grace_holidays < 0:
-        raise ValueError("Grace holidays cannot be negative")
 
     if salary_type not in ("monthly", "hourly"):
         raise ValueError("Invalid salary type")
@@ -375,12 +362,11 @@ def update_employee(
             salary_type = ?,
             daily_hours = ?,
             working_days = ?,
-            grace_holidays = ?,
             expected_check_in = ?,
             expected_check_out = ?,
             late_grace_minutes = ?,
             overtime_enabled = ?,
-            overtime_rate = ?
+            overtime_rate = ?,
         WHERE employee_id = ?
     """, (
         name,
@@ -392,7 +378,6 @@ def update_employee(
         salary_type,
         daily_hours,
         working_days,
-        grace_holidays,
         expected_check_in,
         expected_check_out,
         late_grace_minutes,

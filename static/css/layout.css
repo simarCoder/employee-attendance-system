@@ -508,3 +508,113 @@ body:has(.demo-banner) #toast-container {
 
   color: #ff4d4d;
 }
+
+/* =========================================
+   COLLAPSIBLE DESKTOP SIDEBAR
+   ========================================= */
+
+.dashboard-container {
+  --current-sidebar-width: var(--sidebar-width);
+}
+
+.sidebar {
+  width: var(--current-sidebar-width);
+  transition:
+    width 0.28s ease,
+    transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.main-content {
+  margin-left: var(--current-sidebar-width);
+  transition:
+    margin-left 0.28s ease,
+    padding 0.28s ease;
+}
+
+/* Collapsed */
+.dashboard-container.sidebar-collapsed {
+  --current-sidebar-width: 72px;
+}
+
+.dashboard-container.sidebar-collapsed .sidebar {
+  width: 72px;
+}
+
+.dashboard-container.sidebar-collapsed .main-content {
+  margin-left: 72px;
+}
+
+.dashboard-container.sidebar-collapsed .brand-block {
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
+}
+
+.dashboard-container.sidebar-collapsed .nav-label {
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.dashboard-container.sidebar-collapsed .nav-item {
+  justify-content: center;
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+}
+
+.dashboard-container.sidebar-collapsed .nav-icon {
+  margin: 0;
+}
+
+.dashboard-container.sidebar-collapsed .sidebar-footer {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+.dashboard-container.sidebar-collapsed .footer-brand,
+.dashboard-container.sidebar-collapsed .footer-contact,
+.dashboard-container.sidebar-collapsed .footer-support,
+.dashboard-container.sidebar-collapsed .footer-copyright {
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
+}
+
+/* Collapse button */
+.sidebar-collapse-btn {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: 1px solid var(--border);
+  border-radius: 8px;
+
+  background: var(--bg-input);
+  color: var(--text-main);
+
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.sidebar-collapse-btn:hover {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.sidebar-collapse-icon {
+  font-size: 1.35rem;
+  line-height: 1;
+
+  transition: transform 0.28s ease;
+}
+
+.dashboard-container.sidebar-collapsed .sidebar-collapse-icon {
+  transform: rotate(180deg);
+}

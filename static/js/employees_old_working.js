@@ -135,104 +135,63 @@ function renderEmployeeTable(employees) {
   employees.forEach((emp) => {
     const tr = document.createElement("tr");
 
-    let actionButtons = `
-      <button
-        class="employee-action-btn details"
-        onclick="openEmployeeProfile(${emp.id}, event)"
-      >
-        Details
-      </button>
-    `;
+    // Action Buttons Logic
+    let actionButtons = "";
 
+    // 1. Activate/Deactivate (Only Admin/Head)
     if (canModify) {
       if (emp.status === "active") {
-        actionButtons += `
-          <button
-            class="employee-action-btn warning"
-            onclick="deactivateEmployee(${emp.id}, event)"
-          >
-            Deactivate
-          </button>
-        `;
+        actionButtons += `<button class="btn btn-warning" style="padding:4px 8px; margin-right:5px;" onclick="deactivateEmployee(${emp.id}, event)">Deactivate</button>`;
       } else {
-        actionButtons += `
-          <button
-            class="employee-action-btn primary"
-            onclick="activateEmployee(${emp.id}, event)"
-          >
-            Activate
-          </button>
-        `;
+        actionButtons += `<button class="btn btn-primary" style="padding:4px 8px; margin-right:5px;" onclick="activateEmployee(${emp.id}, event)">Activate</button>`;
       }
 
+      // 2. Edit (Only Admin/Head)
       actionButtons += `
-        <button
-          class="employee-action-btn primary"
-          onclick="editEmployee(${emp.id}, event)"
-        >
-          Edit
-        </button>
+  <button
+    class="btn btn-primary"
+    style="padding:4px 8px; margin-right:5px;"
+    onclick="editEmployee(${emp.id}, event)"
+  >
+    Edit
+  </button>
+`;
 
-        <button
-          class="employee-action-btn danger"
-          onclick="deleteEmployee(${emp.id}, event)"
-        >
-          Delete
-        </button>
-      `;
+      // 3. Delete (Only Admin/Head)
+      actionButtons += `
+  <button
+    class="btn"
+    style="background:#ef4444; color:white; padding:4px 8px;"
+    onclick="deleteEmployee(${emp.id}, event)"
+  >
+    Delete
+  </button>
+`;
+    } else {
+      actionButtons = `<span style="color:var(--text-muted); font-size:0.8rem;">Read Only</span>`;
     }
 
-    const statusClass = emp.status === "active" ? "active" : "inactive";
-
     tr.innerHTML = `
-      <td class="employee-id">#${emp.id}</td>
-
-      <td class="employee-main-cell">
-        <div class="employee-name">
-          ${emp.name || "-"}
-        </div>
-
-        <div class="employee-role">
-          ${emp.role || "No role assigned"}
-        </div>
-      </td>
-
+      <td>#${emp.id}</td>
+      <td>${emp.name}</td>
+      <td>${emp.role}</td>
+      <td>${emp.phone || "-"}</td>
+      <td>${emp.address || "-"}</td>
+      <td>₹${emp.monthly_salary}</td>
       <td>
-        <div class="employee-phone">
-          ${emp.phone || "-"}
-        </div>
-      </td>
-
-      <td>
-        <div
-          class="employee-address"
-          title="${emp.address || ""}"
-        >
-          ${emp.address || "-"}
-        </div>
-      </td>
-
-      <td class="employee-salary">
-        ₹${Number(emp.monthly_salary || 0).toLocaleString("en-IN")}
-      </td>
-
-      <td>
-        <span class="employee-status ${statusClass}">
+        <span class="status-badge"
+              style="
+                background: ${emp.status === "active" ? "#16a34a" : "#fa6515c4"};
+                color: black;
+                padding: 4px 8px;
+                border-radius: 6px;
+              ">
           ${emp.status}
         </span>
       </td>
-
-      <td>
-        <div class="employee-actions">
-          ${actionButtons}
-        </div>
-      </td>
+      <td>${actionButtons}</td>
     `;
 
-    /*
-     * Clicking the row itself also opens the profile.
-     * Action buttons stop propagation through their event handlers.
-     */
     tr.addEventListener("click", () => {
       openEmployeeProfile(emp.id);
     });
@@ -240,6 +199,44 @@ function renderEmployeeTable(employees) {
     tbody.appendChild(tr);
   });
 }
+
+// async function addEmployee(event) {
+//   event.preventDefault();
+
+//   const name = document.getElementById("emp-name").value;
+//   const role = document.getElementById("emp-role").value;
+//   const phone = document.getElementById("emp-contact").value;
+//   const address = document.getElementById("emp-address").value;
+//   const salary = document.getElementById("emp-salary").value;
+
+//   const payload = {
+//     name: name,
+//     role: role,
+//     phone: phone,
+//     address: address,
+//     monthly_salary: parseFloat(salary),
+//   };
+
+//   try {
+//     const response = await fetch(`${API_BASE}/employee/add`, {
+//       method: "POST",
+//       headers: { "Content-Type": "application/json" },
+//       body: JSON.stringify(payload),
+//     });
+
+//     if (response.ok) {
+//       showToast("Employee added successfully", "success");
+//       document.getElementById("add-employee-form").reset();
+//       loadEmployees();
+//     } else {
+//       const err = await response.json();
+//       showToast(err.message || "Error adding employee", "error");
+//     }
+//   } catch (error) {
+//     console.error("Add employee failed:", error);
+//     showToast("Failed to connect to server", "error");
+//   }
+// }
 
 async function addEmployee(event) {
   event.preventDefault();
@@ -279,9 +276,6 @@ async function addEmployee(event) {
   const overtimeRate =
     parseFloat(document.getElementById("emp-overtime-rate").value) || 1.5;
 
-  const graceHolidays =
-    parseFloat(document.getElementById("emp-grace-holidays").value) || 0;
-
   const payload = {
     name: name,
     role: role,
@@ -298,7 +292,6 @@ async function addEmployee(event) {
     overtime_enabled: overtimeEnabled,
     overtime_rate: overtimeRate,
     working_days: workingDays,
-    grace_holidays: graceHolidays,
   };
 
   console.log("Adding employee:", payload);
@@ -508,19 +501,6 @@ async function editEmployee(id, event) {
                   >
               </div>
 
-            <div>
-              <label class="form-label">Grace Holidays / Month</label>
-              <input
-                id="edit-emp-grace-holidays"
-                class="form-control"
-                type="number"
-                min="0"
-                step="0.5"
-                value="${emp.grace_holidays ?? 0}"
-                required
-              >
-            </div>
-
           </div>
 
           <div
@@ -703,15 +683,6 @@ async function editEmployee(id, event) {
             parseFloat(
               document.getElementById("edit-emp-overtime-rate").value,
             ) || 1,
-
-          working_days: parseFloat(
-            document.getElementById("edit-emp-working-days").value,
-          ),
-
-          grace_holidays:
-            parseFloat(
-              document.getElementById("edit-emp-grace-holidays").value,
-            ) || 0,
         };
 
         try {

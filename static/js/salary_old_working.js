@@ -709,31 +709,6 @@ function renderSalaryRecords(records) {
                   </div>
 
                   <div>
-                    <strong>Grace Holidays:</strong>
-                    ${Number(record.grace_holidays || 0).toFixed(2)}
-                  </div>
-
-                  <div>
-                    <strong>Holiday Units:</strong>
-                    ${Number(record.absence_days || 0).toFixed(2)}
-                  </div>
-
-                  <div>
-                    <strong>Grace Used:</strong>
-                    ${Number(record.grace_holidays_used || 0).toFixed(2)}
-                  </div>
-
-                  <div>
-                    <strong>Deducted Holidays:</strong>
-                    ${Number(record.deducted_holidays || 0).toFixed(2)}
-                  </div>
-
-                  <div>
-                    <strong>Paid Minutes:</strong>
-                    ${record.paid_minutes ?? "-"}
-                  </div>
-
-                  <div>
                     <strong>Expected Minutes:</strong>
                     ${record.expected_monthly_minutes ?? "-"}
                   </div>

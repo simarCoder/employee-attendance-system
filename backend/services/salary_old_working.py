@@ -48,80 +48,6 @@ def get_working_days_for_month(cursor, year, month):
 
     return working_days
 
-
-def get_working_weekdays(cursor):
-    """Return configured working weekdays as Python weekday integers."""
-    cursor.execute("""
-        SELECT setting_value
-        FROM system_settings
-        WHERE setting_key = 'working_days'
-    """)
-    row = cursor.fetchone()
-
-    if not row or not row[0]:
-        return {0, 1, 2, 3, 4}
-
-    try:
-        weekdays = {
-            int(day.strip())
-            for day in row[0].split(",")
-            if day.strip()
-        }
-        return weekdays or {0, 1, 2, 3, 4}
-    except (TypeError, ValueError):
-        return {0, 1, 2, 3, 4}
-
-
-def calculate_holiday_deduction(
-    working_dates,
-    attendance_by_date,
-    daily_minutes,
-    grace_holidays
-):
-    """
-    Calculate fractional holiday units and the remaining salary deduction.
-
-    Missing full working day = 1 holiday.
-    Half-day worked = 0.5 holiday.
-    Three half-days = 1.5 holidays.
-    One full holiday + two half-days = 2 holidays.
-    """
-    daily_minutes = max(0.0, float(daily_minutes or 0))
-    grace_holidays = max(0.0, float(grace_holidays or 0))
-
-    if daily_minutes <= 0:
-        return {
-            "absence_days": 0.0,
-            "grace_holidays_used": 0.0,
-            "deducted_holidays": 0.0,
-            "paid_minutes": 0.0,
-        }
-
-    absence_days = 0.0
-    for current_date in working_dates:
-        worked_minutes = max(
-            0.0,
-            float(attendance_by_date.get(current_date.isoformat(), 0) or 0)
-        )
-        worked_fraction = min(1.0, worked_minutes / daily_minutes)
-        absence_days += 1.0 - worked_fraction
-
-    grace_holidays_used = min(grace_holidays, absence_days)
-    deducted_holidays = max(0.0, absence_days - grace_holidays_used)
-    paid_minutes = max(
-        0.0,
-        len(working_dates) * daily_minutes
-        - deducted_holidays * daily_minutes
-    )
-
-    return {
-        "absence_days": round(absence_days, 4),
-        "grace_holidays_used": round(grace_holidays_used, 4),
-        "deducted_holidays": round(deducted_holidays, 4),
-        "paid_minutes": round(paid_minutes, 4),
-    }
-
-
 def calculate_overtime_pay(
     overtime_minutes,
     hourly_rate,
@@ -171,8 +97,7 @@ def generate_salary(employee_id, month, role=None):
                 daily_hours,
                 overtime_enabled,
                 overtime_rate,
-                salary_type,
-                COALESCE(grace_holidays, 0)
+                salary_type
             FROM employees
             WHERE employee_id = ?
         """, (employee_id,))
@@ -189,8 +114,7 @@ def generate_salary(employee_id, month, role=None):
             daily_hours,
             overtime_enabled,
             overtime_rate,
-            salary_type,
-            grace_holidays
+            salary_type
         ) = employee
 
         monthly_salary = float(monthly_salary or 0)
@@ -198,7 +122,6 @@ def generate_salary(employee_id, month, role=None):
         overtime_enabled = bool(overtime_enabled)
         overtime_rate = float(overtime_rate or 1.0)
         salary_type = salary_type or "monthly"
-        grace_holidays = max(0.0, float(grace_holidays or 0))
 
         try:
             year, month_num = map(int, month.split("-"))
@@ -217,51 +140,19 @@ def generate_salary(employee_id, month, role=None):
 
         cursor.execute("""
             SELECT
-                date,
-                COALESCE(worked_minutes, 0),
-                COALESCE(overtime_minutes, 0)
+                COALESCE(SUM(worked_minutes), 0),
+                COALESCE(SUM(overtime_minutes), 0)
             FROM attendance
             WHERE employee_id = ?
               AND date LIKE ?
-            ORDER BY date ASC
         """, (
             employee_id,
             f"{month}-%"
         ))
 
-        attendance_rows = cursor.fetchall()
-        actual_worked_minutes = int(
-            sum(int(row[1] or 0) for row in attendance_rows)
-        )
-        overtime_minutes = int(
-            sum(int(row[2] or 0) for row in attendance_rows)
-        )
-
-        working_weekdays = get_working_weekdays(cursor)
-        days_in_month = calendar.monthrange(year, month_num)[1]
-        working_dates = [
-            date(year, month_num, day_number)
-            for day_number in range(1, days_in_month + 1)
-            if date(year, month_num, day_number).weekday()
-            in working_weekdays
-        ]
-
-        attendance_by_date = {
-            row[0]: max(0, int(row[1] or 0))
-            for row in attendance_rows
-        }
-
-        holiday_metrics = calculate_holiday_deduction(
-            working_dates=working_dates,
-            attendance_by_date=attendance_by_date,
-            daily_minutes=daily_hours * 60.0,
-            grace_holidays=grace_holidays,
-        )
-
-        absence_days = holiday_metrics["absence_days"]
-        grace_holidays_used = holiday_metrics["grace_holidays_used"]
-        deducted_holidays = holiday_metrics["deducted_holidays"]
-        paid_minutes = holiday_metrics["paid_minutes"]
+        attendance = cursor.fetchone()
+        actual_worked_minutes = int(attendance[0] or 0)
+        overtime_minutes = int(attendance[1] or 0)
 
         if expected_monthly_minutes > 0:
             hourly_rate = monthly_salary / (working_days * daily_hours)
@@ -273,7 +164,7 @@ def generate_salary(employee_id, month, role=None):
         if expected_monthly_minutes > 0:
             base_salary = (
                 monthly_salary
-                * paid_minutes
+                * actual_worked_minutes
                 / expected_monthly_minutes
             )
         else:
@@ -333,11 +224,6 @@ def generate_salary(employee_id, month, role=None):
                     actual_worked_minutes = ?,
                     total_hours = ?,
                     overtime_minutes = ?,
-                    grace_holidays_snapshot = ?,
-                    absence_days = ?,
-                    grace_holidays_used = ?,
-                    deducted_holidays = ?,
-                    paid_minutes = ?,
                     hourly_rate_snapshot = ?,
                     base_salary = ?,
                     overtime_pay = ?,
@@ -357,11 +243,6 @@ def generate_salary(employee_id, month, role=None):
                 actual_worked_minutes,
                 total_hours,
                 overtime_minutes,
-                grace_holidays,
-                absence_days,
-                grace_holidays_used,
-                deducted_holidays,
-                paid_minutes,
                 hourly_rate_snapshot,
                 round(base_salary, 2),
                 overtime_pay,
@@ -387,11 +268,6 @@ def generate_salary(employee_id, month, role=None):
                     actual_worked_minutes,
                     total_hours,
                     overtime_minutes,
-                    grace_holidays_snapshot,
-                    absence_days,
-                    grace_holidays_used,
-                    deducted_holidays,
-                    paid_minutes,
                     hourly_rate_snapshot,
                     base_salary,
                     overtime_pay,
@@ -400,7 +276,7 @@ def generate_salary(employee_id, month, role=None):
                     created_at,
                     updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 employee_id,
                 month,
@@ -414,11 +290,6 @@ def generate_salary(employee_id, month, role=None):
                 actual_worked_minutes,
                 total_hours,
                 overtime_minutes,
-                grace_holidays,
-                absence_days,
-                grace_holidays_used,
-                deducted_holidays,
-                paid_minutes,
                 hourly_rate_snapshot,
                 round(base_salary, 2),
                 overtime_pay,
@@ -443,11 +314,6 @@ def generate_salary(employee_id, month, role=None):
             "actual_worked_minutes": actual_worked_minutes,
             "total_hours": total_hours,
             "overtime_minutes": overtime_minutes,
-            "grace_holidays": grace_holidays,
-            "absence_days": absence_days,
-            "grace_holidays_used": grace_holidays_used,
-            "deducted_holidays": deducted_holidays,
-            "paid_minutes": paid_minutes,
             "hourly_rate": hourly_rate_snapshot,
             "base_salary": round(base_salary, 2),
             "overtime_pay": round(overtime_pay, 2),
@@ -479,11 +345,6 @@ def get_salary(employee_id, month):
             actual_worked_minutes,
             total_hours,
             overtime_minutes,
-            grace_holidays_snapshot,
-            absence_days,
-            grace_holidays_used,
-            deducted_holidays,
-            paid_minutes,
             hourly_rate_snapshot,
             base_salary,
             overtime_pay,
@@ -517,11 +378,6 @@ def get_salary(employee_id, month):
         "actual_worked_minutes",
         "total_hours",
         "overtime_minutes",
-        "grace_holidays",
-        "absence_days",
-        "grace_holidays_used",
-        "deducted_holidays",
-        "paid_minutes",
         "hourly_rate",
         "base_salary",
         "overtime_pay",
@@ -555,11 +411,6 @@ def get_salary_records(employee_id=None, month=None):
             actual_worked_minutes,
             total_hours,
             overtime_minutes,
-            grace_holidays_snapshot,
-            absence_days,
-            grace_holidays_used,
-            deducted_holidays,
-            paid_minutes,
             hourly_rate_snapshot,
             base_salary,
             overtime_pay,
@@ -603,11 +454,6 @@ def get_salary_records(employee_id=None, month=None):
         "actual_worked_minutes",
         "total_hours",
         "overtime_minutes",
-        "grace_holidays",
-        "absence_days",
-        "grace_holidays_used",
-        "deducted_holidays",
-        "paid_minutes",
         "hourly_rate",
         "base_salary",
         "overtime_pay",

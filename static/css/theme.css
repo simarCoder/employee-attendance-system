@@ -113,3 +113,60 @@ a {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--border);
 }
+
+/* Global surface rounding */
+.card,
+.table-container,
+.form-section,
+.employee-form,
+.employee-directory,
+.sidebar,
+.nav-item,
+.btn,
+.form-control,
+.status-badge {
+  border-radius: 10px;
+}
+
+/* Larger major containers */
+.card,
+.form-section,
+.employee-directory,
+.table-container {
+  border-radius: 12px;
+}
+
+/* Buttons */
+.btn {
+  border-radius: 8px;
+}
+
+/* Inputs */
+.form-control {
+  border-radius: 9px;
+}
+
+/* Status pills stay more rounded */
+.status-badge {
+  border-radius: 999px !important;
+}
+
+/* Employee action grid */
+.employee-actions {
+  border-radius: 10px;
+}
+
+/* Action buttons */
+.employee-action-btn {
+  border-radius: 7px;
+}
+
+/* Sidebar */
+.sidebar {
+  border-radius: 0 14px 14px 0;
+}
+
+/* Sidebar collapse button */
+.sidebar-collapse-btn {
+  border-radius: 50%;
+}

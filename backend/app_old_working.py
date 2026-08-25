@@ -497,10 +497,6 @@ def add_employee_route():
             working_days=data.get(
                 "working_days",
                 26
-            ),
-            grace_holidays=data.get(
-                "grace_holidays",
-                0
             )
         )
 
@@ -544,8 +540,6 @@ def update_employee_route():
             monthly_salary=data.get("monthly_salary"),
             salary_type=data.get("salary_type", "monthly"),
             daily_hours=data.get("daily_hours", 8),
-            working_days=data.get("working_days", 26),
-            grace_holidays=data.get("grace_holidays", 0),
             expected_check_in=data.get("expected_check_in"),
             expected_check_out=data.get("expected_check_out"),
             late_grace_minutes=data.get("late_grace_minutes", 0),
@@ -615,14 +609,12 @@ def get_employee_profile(employee_id):
     "hourly_rate": emp[6],
     "salary_type": emp[7],
     "daily_hours": emp[8],
-    "working_days": emp[9],
-    "grace_holidays": emp[10],
-    "expected_check_in": emp[11],
-    "expected_check_out": emp[12],
-    "late_grace_minutes": emp[13],
-    "overtime_enabled": emp[14],
-    "overtime_rate": emp[15],
-    "status": emp[16]
+    "expected_check_in": emp[9],
+    "expected_check_out": emp[10],
+    "late_grace_minutes": emp[11],
+    "overtime_enabled": emp[12],
+    "overtime_rate": emp[13],
+    "status": emp[14]
 })
     
     

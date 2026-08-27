@@ -261,21 +261,51 @@ def add_system_user(username, password, role):
     cursor.close()
     conn.close()
 
+# def get_all_system_users():
+#     conn = get_connection()
+#     cursor = conn.cursor()
+#     cursor.execute("SELECT user_id, username, password_hash, role FROM users ORDER BY user_id ASC")
+#     rows = cursor.fetchall()
+#     cursor.close()
+#     conn.close()
+    
+#     # Decrypt passwords for display
+#     users = []
+#     for row in rows:
+#         user_id, username, encrypted_pw, role = row
+#         decrypted_pw = decrypt_password(encrypted_pw)
+#         users.append((user_id, username, decrypted_pw, role))
+        
+#     return users
+
 def get_all_system_users():
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT user_id, username, password_hash, role FROM users ORDER BY user_id ASC")
+
+    cursor.execute("""
+        SELECT user_id, username, password_hash, role
+        FROM users
+        ORDER BY user_id ASC
+    """)
+
     rows = cursor.fetchall()
+
     cursor.close()
     conn.close()
-    
-    # Decrypt passwords for display
+
+    # Never return/decrypt passwords for display.
     users = []
+
     for row in rows:
         user_id, username, encrypted_pw, role = row
-        decrypted_pw = decrypt_password(encrypted_pw)
-        users.append((user_id, username, decrypted_pw, role))
-        
+
+        users.append((
+            user_id,
+            username,
+            None,
+            role
+        ))
+
     return users
 
 def update_user_password(user_id, new_password):

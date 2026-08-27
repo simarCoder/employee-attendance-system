@@ -356,6 +356,39 @@ def role_required(*allowed_roles):
 
     return decorator
 
+def system_user_permission_required(action):
+    """
+    System user management permissions.
+
+    head = Developer / highest authority
+    admin = can manage users, but not admin/head
+    user = no system-user management
+    """
+
+    @wraps(action)
+    def wrapped(*args, **kwargs):
+        if "user_id" not in session:
+            return jsonify({
+                "error": "AUTH_REQUIRED",
+                "message": "Please login again."
+            }), 401
+
+        role = session.get("role")
+
+        # Developer / Head has full authority
+        if role == "head":
+            return action(*args, **kwargs)
+
+        # Admin has restricted authority
+        if role == "admin":
+            return action(*args, **kwargs)
+
+        return jsonify({
+            "error": "FORBIDDEN",
+            "message": "You do not have permission."
+        }), 403
+
+    return wrapped
 
 @app.route("/dashboard")
 @login_required
@@ -998,41 +1031,313 @@ def backup_db_route():
     except Exception as e:
         return jsonify({"message": str(e)}), 500
 
+# @app.route("/users/add", methods=["POST"])
+# def add_user_route():
+#     data = request.json
+#     try:
+#         add_system_user(data.get("username"), data.get("password"), data.get("role"))
+#         return jsonify({"message": "User added successfully"})
+#     except Exception as e:
+#         return jsonify({"message": str(e)}), 400
+
+
 @app.route("/users/add", methods=["POST"])
+@login_required
 def add_user_route():
-    data = request.json
+    data = request.json or {}
+
+    username = data.get("username")
+    password = data.get("password")
+    role = data.get("role")
+
+    current_role = session.get("role")
+
+    # USER cannot create accounts
+    if current_role == "user":
+        return jsonify({
+            "success": False,
+            "message": "You do not have permission to create users."
+        }), 403
+
+    # ADMIN can create USER only
+    if current_role == "admin" and role != "user":
+        return jsonify({
+            "success": False,
+            "message": "Admins can create User accounts only."
+        }), 403
+
+    # DEVELOPER / HEAD can create anything
+    if current_role == "head":
+        if role not in ("user", "admin", "head"):
+            return jsonify({
+                "success": False,
+                "message": "Invalid role."
+            }), 400
+
     try:
-        add_system_user(data.get("username"), data.get("password"), data.get("role"))
-        return jsonify({"message": "User added successfully"})
+        add_system_user(
+            username,
+            password,
+            role
+        )
+
+        return jsonify({
+            "success": True,
+            "message": "User added successfully."
+        })
+
     except Exception as e:
-        return jsonify({"message": str(e)}), 400
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        }), 400
+        
+        
+# @app.route("/users", methods=["GET"])
+# def get_users_route():
+#     try:
+#         users = get_all_system_users()
+#         result = [{"id": u[0], "username": u[1], "password": u[2], "role": u[3]} for u in users]
+#         return jsonify(result)
+#     except Exception as e:
+#         return jsonify({"message": str(e)}), 500
 
 @app.route("/users", methods=["GET"])
+@login_required
 def get_users_route():
+
+    current_role = session.get("role")
+
+    if current_role not in ("admin", "head"):
+        return jsonify({
+            "success": False,
+            "message": "You do not have permission."
+        }), 403
+
     try:
         users = get_all_system_users()
-        result = [{"id": u[0], "username": u[1], "password": u[2], "role": u[3]} for u in users]
+
+        result = []
+
+        for u in users:
+            result.append({
+                "id": u[0],
+                "username": u[1],
+                "role": u[3]
+            })
+
         return jsonify(result)
+
     except Exception as e:
-        return jsonify({"message": str(e)}), 500
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        }), 500
+
+
+# @app.route("/users/password", methods=["POST"])
+# def update_password_route():
+#     data = request.json
+#     try:
+#         update_user_password(data.get("user_id"), data.get("password"))
+#         return jsonify({"message": "Password updated"})
+#     except Exception as e:
+#         return jsonify({"message": str(e)}), 400
 
 @app.route("/users/password", methods=["POST"])
+@login_required
 def update_password_route():
-    data = request.json
+
+    data = request.json or {}
+
+    target_user_id = data.get("user_id")
+    new_password = data.get("password")
+
+    current_user_id = session.get("user_id")
+    current_role = session.get("role")
+
+    if not target_user_id or not new_password:
+        return jsonify({
+            "success": False,
+            "message": "User ID and password are required."
+        }), 400
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT user_id, username, role
+        FROM users
+        WHERE user_id = ?
+    """, (target_user_id,))
+
+    target = cursor.fetchone()
+
+    cursor.close()
+    conn.close()
+
+    if not target:
+        return jsonify({
+            "success": False,
+            "message": "User not found."
+        }), 404
+
+    target_user_id_db = target[0]
+    target_username = target[1]
+    target_role = target[2]
+
+    # ---------------------------------------------------------
+    # PASSWORD PERMISSIONS
+    #
+    # HEAD / DEVELOPER
+    # -> Can change everyone's password
+    #
+    # ADMIN
+    # -> Can change own password
+    # -> Can change USER passwords
+    # -> Cannot change another ADMIN
+    # -> Cannot change DEVELOPER
+    #
+    # USER
+    # -> Cannot change any password
+    # ---------------------------------------------------------
+
+    if current_role == "head":
+
+        # Developer has full password control
+        pass
+
+    elif current_role == "admin":
+
+        # Admin can change own password
+        if target_user_id_db == current_user_id:
+            pass
+
+        # Admin can change User password
+        elif target_role == "user":
+            pass
+
+        # Admin cannot change Admin or Developer
+        else:
+            return jsonify({
+                "success": False,
+                "message": "Admins can only change their own password or User passwords."
+            }), 403
+
+    else:
+
+        # Normal User
+        return jsonify({
+            "success": False,
+            "message": "Users cannot change passwords."
+        }), 403
+
+    # ---------------------------------------------------------
+    # ACTUALLY UPDATE PASSWORD
+    # ---------------------------------------------------------
+
     try:
-        update_user_password(data.get("user_id"), data.get("password"))
-        return jsonify({"message": "Password updated"})
+        update_user_password(
+            target_user_id_db,
+            new_password
+        )
+
+        return jsonify({
+            "success": True,
+            "message": f"Password updated for {target_username}."
+        }), 200
+
     except Exception as e:
-        return jsonify({"message": str(e)}), 400
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        }), 500
+
+# @app.route("/users/delete", methods=["POST"])
+# def delete_user_route():
+#     data = request.json
+#     try:
+#         delete_system_user(data.get("user_id"), data.get("current_user_id"))
+#         return jsonify({"message": "User deleted and IDs reordered"})
+#     except Exception as e:
+#         return jsonify({"message": str(e)}), 400
 
 @app.route("/users/delete", methods=["POST"])
+@login_required
 def delete_user_route():
-    data = request.json
+
+    data = request.json or {}
+
+    target_user_id = data.get("user_id")
+    current_user_id = session.get("user_id")
+    current_role = session.get("role")
+
+    if not target_user_id:
+        return jsonify({
+            "success": False,
+            "message": "User ID is required."
+        }), 400
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT role
+        FROM users
+        WHERE user_id = ?
+    """, (target_user_id,))
+
+    target = cursor.fetchone()
+
+    cursor.close()
+    conn.close()
+
+    if not target:
+        return jsonify({
+            "success": False,
+            "message": "User not found."
+        }), 404
+
+    target_role = target[0]
+
+    # User cannot delete anyone
+    if current_role == "user":
+        return jsonify({
+            "success": False,
+            "message": "Users cannot delete accounts."
+        }), 403
+
+    # Admin can delete Users only
+    if current_role == "admin" and target_role != "user":
+        return jsonify({
+            "success": False,
+            "message": "Admins can delete User accounts only."
+        }), 403
+
+    # Nobody can delete their own logged-in account
+    if str(target_user_id) == str(current_user_id):
+        return jsonify({
+            "success": False,
+            "message": "You cannot delete your own account while logged in."
+        }), 403
+
     try:
-        delete_system_user(data.get("user_id"), data.get("current_user_id"))
-        return jsonify({"message": "User deleted and IDs reordered"})
+        delete_system_user(
+            target_user_id,
+            current_user_id
+        )
+
+        return jsonify({
+            "success": True,
+            "message": "User deleted successfully."
+        })
+
     except Exception as e:
-        return jsonify({"message": str(e)}), 400
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        }), 400
+
 
 @app.route("/settings/renewal", methods=["GET"])
 def get_renewal_route():

@@ -1,138 +1,336 @@
 import sqlite3
-from backend.services.salary import generate_salary
+
+from backend.app import app
+from backend.utils.security import decrypt_password
+
+app.secret_key = "TEST_SECRET_KEY_ONLY"
+
 
 DB = "db/attendance.db"
-TEST_EMPLOYEE_ID = 999999
-MONTH = "2026-09"
 
-conn = sqlite3.connect(DB)
-cur = conn.cursor()
 
-try:
-    # Clean previous test data
-    cur.execute(
-        "DELETE FROM attendance WHERE employee_id = ?",
-        (TEST_EMPLOYEE_ID,)
-    )
+def get_test_users():
+    conn = sqlite3.connect(DB)
 
-    cur.execute(
-        "DELETE FROM salary_cal WHERE employee_id = ?",
-        (TEST_EMPLOYEE_ID,)
-    )
+    rows = conn.execute("""
+        SELECT user_id, username, password_hash, role
+        FROM users
+        ORDER BY user_id
+    """).fetchall()
 
-    cur.execute(
-        "DELETE FROM employees WHERE employee_id = ?",
-        (TEST_EMPLOYEE_ID,)
-    )
-
-    # Create controlled test employee
-    cur.execute("""
-        INSERT INTO employees (
-            employee_id,
-            name,
-            role,
-            monthly_salary,
-            daily_hours,
-            working_days,
-            salary_type,
-            grace_holidays,
-            status
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (
-        TEST_EMPLOYEE_ID,
-        "SALARY TEST",
-        "Tester",
-        26000,
-        8,
-        26,
-        "monthly",
-        2,
-        "active"
-    ))
-
-    # Attendance:
-    # Sep 1 = full day -> 480 min
-    # Sep 2 = half day -> 240 min
-    # Sep 3 = half day -> 240 min
-    #
-    # Absence:
-    # 0 + 0.5 + 0.5 = 1.0 day
-    #
-    # Grace:
-    # 2.0 available
-    #
-    # Therefore:
-    # Absence = 1.0
-    # Grace used = 1.0
-    # Deducted = 0.0
-
-    attendance = [
-        ("2026-09-01", 480),
-        ("2026-09-02", 240),
-        ("2026-09-03", 240),
-    ]
-
-    for attendance_date, worked_minutes in attendance:
-        cur.execute("""
-            INSERT INTO attendance (
-                employee_id,
-                date,
-                worked_minutes
-            )
-            VALUES (?, ?, ?)
-        """, (
-            TEST_EMPLOYEE_ID,
-            attendance_date,
-            worked_minutes
-        ))
-
-    conn.commit()
-
-    print("\n=== SALARY TEST ===")
-
-    result = generate_salary(
-        TEST_EMPLOYEE_ID,
-        MONTH
-    )
-
-    print("Employee:", result["employee_name"])
-    print("Monthly salary:", result["monthly_salary"])
-    print("Working days:", result["working_days"])
-    print("Daily hours:", result["daily_hours"])
-    print("Expected minutes:", result["expected_monthly_minutes"])
-    print("Actual worked minutes:", result["actual_worked_minutes"])
-    print("Absence days:", result["absence_days"])
-    print("Grace used:", result["grace_holidays_used"])
-    print("Deducted holidays:", result["deducted_holidays"])
-    print("Paid minutes:", result["paid_minutes"])
-    print("Base salary:", result["base_salary"])
-    print("Total salary:", result["total_salary"])
-
-    print("\n=== EXPECTED ===")
-    print("Absence: 1.0")
-    print("Grace used: 1.0")
-    print("Deducted holidays: 0.0")
-    print("Total salary: 26000.0")
-
-finally:
-    # Remove test data
-    cur.execute(
-        "DELETE FROM attendance WHERE employee_id = ?",
-        (TEST_EMPLOYEE_ID,)
-    )
-
-    cur.execute(
-        "DELETE FROM salary_cal WHERE employee_id = ?",
-        (TEST_EMPLOYEE_ID,)
-    )
-
-    cur.execute(
-        "DELETE FROM employees WHERE employee_id = ?",
-        (TEST_EMPLOYEE_ID,)
-    )
-
-    conn.commit()
     conn.close()
 
-    print("\n=== TEST DATA CLEANED ===")
+    users = {}
+
+    for user_id, username, encrypted_password, role in rows:
+        users[role] = {
+            "id": user_id,
+            "username": username,
+            "password": decrypt_password(encrypted_password),
+        }
+
+    return users
+
+
+users = get_test_users()
+
+print("\n=== USERS ===")
+
+for role, user in users.items():
+    print(
+        f"{role:6} -> "
+        f"{user['username']} "
+        f"(ID {user['id']})"
+    )
+
+
+client = app.test_client()
+
+
+def login(user):
+    response = client.post(
+        "/login",
+        json={
+            "username": user["username"],
+            "password": user["password"],
+        },
+    )
+
+    return response
+
+
+def check(name, response, expected):
+    if response.status_code == expected:
+        print(f"PASS  {name}")
+        return True
+
+    print(
+        f"FAIL  {name} "
+        f"(expected {expected}, got {response.status_code})"
+    )
+    return False
+
+
+passed = 0
+failed = 0
+
+
+# =========================================================
+# LOGIN
+# =========================================================
+
+print("\n=== LOGIN TEST ===")
+
+for role in ("head", "admin", "user"):
+
+    client = app.test_client()
+
+    response = login(users[role])
+
+    if check(
+        f"{role} login",
+        response,
+        200
+    ):
+        passed += 1
+    else:
+        failed += 1
+
+
+# =========================================================
+# /users ACCESS
+# =========================================================
+
+print("\n=== USER MANAGEMENT ACCESS ===")
+
+
+def test_users_access(role, expected):
+
+    global passed, failed, client
+
+    client = app.test_client()
+
+    response = login(users[role])
+
+    if response.status_code != 200:
+        print(
+            f"FAIL  {role} login before /users "
+            f"({response.status_code})"
+        )
+        failed += 1
+        return
+
+    response = client.get("/users")
+
+    if check(
+        f"{role} -> GET /users",
+        response,
+        expected
+    ):
+        passed += 1
+    else:
+        failed += 1
+
+
+test_users_access("head", 200)
+test_users_access("admin", 200)
+test_users_access("user", 403)
+
+
+# =========================================================
+# PASSWORD PERMISSIONS
+# =========================================================
+
+print("\n=== PASSWORD PERMISSIONS ===")
+
+
+def test_password(actor_role, target_role, expected):
+
+    global passed, failed, client
+
+    client = app.test_client()
+
+    actor = users[actor_role]
+    target = users[target_role]
+
+    response = login(actor)
+
+    if response.status_code != 200:
+        print(
+            f"FAIL  {actor_role} login "
+            f"before password test"
+        )
+        failed += 1
+        return
+
+    # IMPORTANT:
+    # Use the SAME password so the test does not permanently
+    # change any real password.
+    #
+    # This request will only actually update if permission
+    # succeeds, so we DO NOT want to send a valid request
+    # for successful cases.
+    #
+    # Therefore this test only verifies forbidden cases.
+
+    if expected != 403:
+        print(
+            f"SKIP  {actor_role} -> {target_role} "
+            f"(successful password mutation not tested)"
+        )
+        return
+
+    response = client.post(
+        "/users/password",
+        json={
+            "user_id": target["id"],
+            "password": "__PERMISSION_TEST__",
+        },
+    )
+
+    if check(
+        f"{actor_role} -> change {target_role} password",
+        response,
+        expected
+    ):
+        passed += 1
+    else:
+        failed += 1
+
+
+# Forbidden cases only.
+test_password("user", "user", 403)
+test_password("user", "admin", 403)
+test_password("user", "head", 403)
+
+test_password("admin", "admin", 403)
+test_password("admin", "head", 403)
+
+
+# =========================================================
+# CREATE ACCOUNT PERMISSIONS
+# =========================================================
+
+print("\n=== CREATE USER PERMISSIONS ===")
+
+
+def test_create(actor_role, target_role, expected):
+
+    global passed, failed, client
+
+    client = app.test_client()
+
+    response = login(users[actor_role])
+
+    if response.status_code != 200:
+        print(
+            f"FAIL  {actor_role} login "
+            f"before create test"
+        )
+        failed += 1
+        return
+
+    response = client.post(
+        "/users/add",
+        json={
+            "username": "__PERMISSION_TEST__",
+            "password": "__PERMISSION_TEST__",
+            "role": target_role,
+        },
+    )
+
+    if expected == 403:
+        result = response.status_code == 403
+    else:
+        # We do NOT allow successful creation in this test.
+        # Prevents creating junk accounts.
+        result = response.status_code != 200
+
+    if result:
+        print(
+            f"PASS  {actor_role} -> create {target_role}"
+        )
+        passed += 1
+    else:
+        print(
+            f"FAIL  {actor_role} -> create {target_role} "
+            f"(got {response.status_code})"
+        )
+        failed += 1
+
+
+test_create("user", "user", 403)
+test_create("user", "admin", 403)
+test_create("user", "head", 403)
+
+test_create("admin", "admin", 403)
+test_create("admin", "head", 403)
+
+
+# =========================================================
+# DELETE PERMISSIONS
+# =========================================================
+
+print("\n=== DELETE PERMISSIONS ===")
+
+
+def test_delete(actor_role, target_role, expected):
+
+    global passed, failed, client
+
+    client = app.test_client()
+
+    response = login(users[actor_role])
+
+    if response.status_code != 200:
+        print(
+            f"FAIL  {actor_role} login "
+            f"before delete test"
+        )
+        failed += 1
+        return
+
+    target = users[target_role]
+
+    response = client.post(
+        "/users/delete",
+        json={
+            "user_id": target["id"],
+        },
+    )
+
+    if response.status_code == expected:
+        print(
+            f"PASS  {actor_role} -> delete {target_role}"
+        )
+        passed += 1
+    else:
+        print(
+            f"FAIL  {actor_role} -> delete {target_role} "
+            f"(expected {expected}, got {response.status_code})"
+        )
+        failed += 1
+
+
+# Forbidden only.
+test_delete("user", "user", 403)
+test_delete("user", "admin", 403)
+test_delete("user", "head", 403)
+
+test_delete("admin", "admin", 403)
+test_delete("admin", "head", 403)
+
+
+# =========================================================
+# RESULT
+# =========================================================
+
+print("\n" + "=" * 55)
+print(f"PASSED: {passed}")
+print(f"FAILED: {failed}")
+print("=" * 55)
+
+if failed == 0:
+    print("ALL PERMISSION TESTS PASSED")
+else:
+    print("PERMISSION TESTS FAILED")

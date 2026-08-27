@@ -238,13 +238,26 @@ def generate_salary(employee_id, month, role=None):
         )
 
         working_weekdays = get_working_weekdays(cursor)
+
         days_in_month = calendar.monthrange(year, month_num)[1]
-        working_dates = [
-            date(year, month_num, day_number)
-            for day_number in range(1, days_in_month + 1)
-            if date(year, month_num, day_number).weekday()
-            in working_weekdays
-        ]
+
+        month_start = date(year, month_num, 1)
+        month_end = date(year, month_num, days_in_month)
+
+        today = date.today()
+
+        # Never count future dates as absence.
+        if month_start > today:
+            working_dates = []
+        else:
+            calculation_end = min(month_end, today)
+
+            working_dates = [
+                date(year, month_num, day_number)
+                for day_number in range(1, calculation_end.day + 1)
+                if date(year, month_num, day_number).weekday()
+                in working_weekdays
+            ]
 
         attendance_by_date = {
             row[0]: max(0, int(row[1] or 0))

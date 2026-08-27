@@ -1078,7 +1078,10 @@
           </div>
 
           <!-- DEMO MODE TOGGLE (Head Only) -->
-          <div class="card head-only" style="display: none; max-width: 500px">
+          <div
+            class="card system-user-management"
+            style="display: none; max-width: 500px"
+          >
             <h3 style="color: #f59e0b">Demo Configuration</h3>
             <div
               class="form-group"
@@ -1402,8 +1405,12 @@
                 <label class="form-label">Role</label>
                 <select id="new-user-role" class="form-control">
                   <option value="user">User (Restricted)</option>
-                  <option value="admin">Admin</option>
-                  <option value="head">Head</option>
+                  <option value="admin" class="developer-only-option">
+                    Admin
+                  </option>
+                  <option value="head" class="developer-only-option">
+                    Head / Developer
+                  </option>
                 </select>
               </div>
               <button type="submit" class="btn btn-warning">Create User</button>
@@ -1419,13 +1426,13 @@
                     <th>ID</th>
                     <th>Username</th>
                     <th>Role</th>
-                    <th>Password</th>
+                    <!-- <th>Password</th> -->
                     <th>Action</th>
                   </tr>
                 </thead>
                 <tbody id="system-users-table-body">
                   <tr>
-                    <td colspan="5" style="text-align: center">Loading...</td>
+                    <td colspan="4" style="text-align: center">Loading...</td>
                   </tr>
                 </tbody>
               </table>

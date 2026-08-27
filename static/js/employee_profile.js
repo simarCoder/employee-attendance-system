@@ -1,12 +1,28 @@
 let CURRENT_EMPLOYEE_ID = null;
 let PREVIOUS_SECTION = null;
+let PROFILE_RETURN_SECTION = null;
+let PROFILE_RETURN_TO_LIST = false;
 
 /* =========================
    OPEN PROFILE FROM EMPLOYEE TABLE
 ========================= */
-function openEmployeeProfile(employeeId) {
-  PREVIOUS_SECTION = document.querySelector(".section.active").id;
+function openEmployeeProfile(employeeId, event) {
+  if (event) event.stopPropagation();
 
+  const activeSection = document.querySelector(".section.active");
+  const activeSectionId = activeSection ? activeSection.id : "overview";
+
+  // If we are already inside Employee Details, this profile was opened
+  // from its employee list. Otherwise remember the real originating section.
+  if (activeSectionId === "employee-profile") {
+    PROFILE_RETURN_SECTION = "employee-profile";
+    PROFILE_RETURN_TO_LIST = true;
+  } else {
+    PROFILE_RETURN_SECTION = activeSectionId;
+    PROFILE_RETURN_TO_LIST = false;
+  }
+
+  PREVIOUS_SECTION = PROFILE_RETURN_SECTION;
   CURRENT_EMPLOYEE_ID = employeeId;
 
   switchSection("employee-profile");
@@ -14,24 +30,19 @@ function openEmployeeProfile(employeeId) {
   document.getElementById("profile-list-view").style.display = "none";
   document.getElementById("profile-detail-view").style.display = "block";
 
-  // FIX: Render Skeleton immediately to prevent race conditions and provide UI feedback
   const content = document.getElementById("profile-content-area");
   content.innerHTML = `
     <div id="profile-basic-info">
-        <p style="color:var(--text-muted);">Loading details...</p>
-    </div>
-    <div id="profile-salary-section" style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border);">
-        <p style="color:var(--text-muted);">Loading financial details...</p>
+      <div class="profile-loading">Loading employee details...</div>
     </div>
   `;
 
   loadEmployeeProfile(employeeId);
   loadEmployeeDocuments(employeeId);
-  // Ensure loadEmployeeSalary is defined or implemented, otherwise comment out
-  if (typeof loadEmployeeSalary === "function") {
-    loadEmployeeSalary(employeeId);
-  }
+  loadEmployeeAttendance(employeeId);
+  loadEmployeeSalaryHistory(employeeId);
 }
+
 
 /* =========================
    LOAD PROFILE DATA
@@ -43,35 +54,149 @@ function loadEmployeeProfile(employeeId) {
       return res.json();
     })
     .then((emp) => {
-      // FIX: Target specific container to avoid overwriting the salary section
       const content = document.getElementById("profile-basic-info");
       if (!content) return;
 
-      // FIX: Use responsive grid (auto-fit) instead of hardcoded 1fr 1fr
+      const money = (value) => `₹${Number(value || 0).toLocaleString("en-IN", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`;
+      const yesNo = (value) => Number(value) ? "Enabled" : "Disabled";
+      const time = (value) => value || "Not configured";
+
       content.innerHTML = `
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
-            <div>
-                <p><strong style="color:var(--text-muted);">ID:</strong> ${emp.id}</p>
-                <p><strong style="color:var(--text-muted);">Name:</strong> ${emp.name}</p>
-                <p><strong style="color:var(--text-muted);">Role:</strong> ${emp.role}</p>
-            </div>
-            <div>
-                <p><strong style="color:var(--text-muted);">Phone:</strong> ${emp.phone || "-"}</p>
-                <p><strong style="color:var(--text-muted);">Address:</strong> ${emp.address || "-"}</p>
-                <p><strong style="color:var(--text-muted);">Status:</strong> 
-                    <span class="status-badge" style="
-                        background: ${emp.status === "active" ? "rgba(34, 197, 94, 0.15)" : "rgba(239, 68, 68, 0.15)"};
-                        color: ${emp.status === "active" ? "var(--success)" : "var(--danger)"};">
-                        ${emp.status}
-                    </span>
-                </p>
-            </div>
+        <div class="employee-profile-header">
+          <div>
+            <div class="employee-profile-eyebrow">EMPLOYEE PROFILE</div>
+            <h2>${emp.name || "-"}</h2>
+            <p>${emp.role || "No role assigned"} · Employee #${emp.id}</p>
+          </div>
+          <span class="employee-profile-status ${emp.status === "active" ? "active" : "inactive"}">${emp.status || "unknown"}</span>
         </div>
+
+        <div class="employee-profile-grid">
+          <section class="profile-info-panel">
+            <div class="profile-panel-title">Personal & Contact</div>
+            <div class="profile-field-grid">
+              <div class="profile-field"><span>Employee ID</span><strong>#${emp.id}</strong></div>
+              <div class="profile-field"><span>Full Name</span><strong>${emp.name || "-"}</strong></div>
+              <div class="profile-field"><span>Phone</span><strong>${emp.phone || "-"}</strong></div>
+              <div class="profile-field profile-field-wide"><span>Address</span><strong>${emp.address || "-"}</strong></div>
+            </div>
+          </section>
+
+          <section class="profile-info-panel">
+            <div class="profile-panel-title">Employment & Payroll</div>
+            <div class="profile-field-grid">
+              <div class="profile-field"><span>Salary Type</span><strong>${emp.salary_type || "-"}</strong></div>
+              <div class="profile-field"><span>Monthly Salary</span><strong>${money(emp.monthly_salary)}</strong></div>
+              <div class="profile-field"><span>Hourly Rate</span><strong>${money(emp.hourly_rate)}</strong></div>
+              <div class="profile-field"><span>Working Days</span><strong>${emp.working_days ?? "-"}</strong></div>
+            </div>
+          </section>
+
+          <section class="profile-info-panel">
+            <div class="profile-panel-title">Attendance Configuration</div>
+            <div class="profile-field-grid">
+              <div class="profile-field"><span>Daily Hours</span><strong>${Number(emp.daily_hours || 0).toFixed(2)} h</strong></div>
+              <div class="profile-field"><span>Check In</span><strong>${time(emp.expected_check_in)}</strong></div>
+              <div class="profile-field"><span>Check Out</span><strong>${time(emp.expected_check_out)}</strong></div>
+              <div class="profile-field"><span>Late Grace</span><strong>${emp.late_grace_minutes ?? 0} min</strong></div>
+            </div>
+          </section>
+
+          <section class="profile-info-panel">
+            <div class="profile-panel-title">Overtime & Grace Holidays</div>
+            <div class="profile-field-grid">
+              <div class="profile-field"><span>Overtime</span><strong>${yesNo(emp.overtime_enabled)}</strong></div>
+              <div class="profile-field"><span>Overtime Rate</span><strong>${Number(emp.overtime_rate || 0).toFixed(2)}×</strong></div>
+              <div class="profile-field"><span>Grace Holidays</span><strong>${Number(emp.grace_holidays || 0).toFixed(2)}</strong></div>
+              <div class="profile-field"><span>Account Status</span><strong>${emp.status || "-"}</strong></div>
+            </div>
+          </section>
+        </div>
+
+        <section class="profile-info-panel profile-full-panel">
+          <div class="profile-panel-title">Attendance Snapshot</div>
+          <div id="profile-attendance-summary" class="profile-inline-loading">Loading attendance...</div>
+        </section>
+
+        <section class="profile-info-panel profile-full-panel">
+          <div class="profile-panel-title">Salary History</div>
+          <div id="profile-salary-history" class="profile-inline-loading">Loading salary history...</div>
+        </section>
       `;
     })
     .catch((err) => {
       console.error(err);
+      const content = document.getElementById("profile-basic-info");
+      if (content) content.innerHTML = `<div class="profile-error">Failed to load employee details.</div>`;
       if (window.showToast) showToast("Failed to load profile", "error");
+    });
+}
+
+function loadEmployeeAttendance(employeeId) {
+  fetch(`${API_BASE}/attendance/${employeeId}`)
+    .then((res) => res.json())
+    .then((records) => {
+      const target = document.getElementById("profile-attendance-summary");
+      if (!target) return;
+      const rows = Array.isArray(records) ? records : [];
+      const totalMinutes = rows.reduce((sum, row) => sum + Math.round(Number(row.worked_hours || 0) * 60), 0);
+      const totalHours = (totalMinutes / 60).toFixed(1);
+      const completed = rows.filter((row) => row.check_in && row.check_out).length;
+      target.innerHTML = `
+        <div class="profile-stat-grid">
+          <div><span>Attendance Records</span><strong>${rows.length}</strong></div>
+          <div><span>Completed Days</span><strong>${completed}</strong></div>
+          <div><span>Worked Hours</span><strong>${totalHours} h</strong></div>
+        </div>
+      `;
+    })
+    .catch((err) => {
+      console.error("Attendance profile load error", err);
+      const target = document.getElementById("profile-attendance-summary");
+      if (target) target.textContent = "Attendance data unavailable.";
+    });
+}
+
+function loadEmployeeSalaryHistory(employeeId) {
+  fetch(`${API_BASE}/salary/records?employee_id=${employeeId}`)
+    .then((res) => res.json())
+    .then((payload) => {
+      const target = document.getElementById("profile-salary-history");
+      if (!target) return;
+      const records = payload.records || [];
+      if (!records.length) {
+        target.innerHTML = `<div class="profile-empty">No salary records generated yet.</div>`;
+        return;
+      }
+
+      target.innerHTML = `
+        <div class="table-container profile-history-table">
+          <table class="table">
+            <thead><tr><th>Month</th><th>Base Salary</th><th>Deductions</th><th>Total</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+              ${records.slice(0, 12).map((record) => {
+                const deductions = Math.max(0, Number(record.base_salary || 0) - Number(record.total_salary || 0));
+                return `<tr>
+                  <td>${record.month}</td>
+                  <td>₹${Number(record.base_salary || 0).toLocaleString("en-IN", {minimumFractionDigits: 2})}</td>
+                  <td>₹${deductions.toLocaleString("en-IN", {minimumFractionDigits: 2})}</td>
+                  <td><strong>₹${Number(record.total_salary || 0).toLocaleString("en-IN", {minimumFractionDigits: 2})}</strong></td>
+                  <td><span class="status-badge">${record.locked ? "Locked" : "Draft"}</span></td>
+                  <td><button class="btn profile-receipt-btn" onclick="viewSalaryReceipt(${employeeId}, '${record.month}')">Receipt</button></td>
+                </tr>`;
+              }).join("")}
+            </tbody>
+          </table>
+        </div>
+      `;
+    })
+    .catch((err) => {
+      console.error("Salary history load error", err);
+      const target = document.getElementById("profile-salary-history");
+      if (target) target.textContent = "Salary history unavailable.";
     });
 }
 
@@ -255,15 +380,20 @@ function openEmployeeDetailsSection(navElement) {
    BACK BUTTON
 ========================= */
 function backToEmployeeList() {
-  if (PREVIOUS_SECTION) {
-    switchSection(PREVIOUS_SECTION);
-  } else {
-    switchSection("overview");
+  const returnSection = PROFILE_RETURN_SECTION || PREVIOUS_SECTION || "overview";
+
+  if (returnSection === "employee-profile") {
+    document.getElementById("profile-detail-view").style.display = "none";
+    document.getElementById("profile-list-view").style.display = "block";
+    loadProfileEmployeeList();
+    return;
   }
 
   document.getElementById("profile-detail-view").style.display = "none";
   document.getElementById("profile-list-view").style.display = "block";
+  switchSection(returnSection);
 }
+
 
 /* =========================
    HELPER: 12-HOUR DATE FORMATTER

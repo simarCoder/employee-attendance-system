@@ -557,6 +557,16 @@ function displaySalaryCard(data) {
             : '<small style="color:var(--text-muted);display:block;margin-top:5px;">* Locked</small>'
         }
       </div>
+
+      <div class="salary-result-actions">
+        <button
+          type="button"
+          class="btn"
+          onclick="viewSalaryReceipt(${data.employee_id}, '${data.month}')"
+        >
+          Generate Receipt / Print
+        </button>
+      </div>
     </div>
   `;
 
@@ -934,4 +944,111 @@ function saveEditedSalary(empId, month) {
       fetchSalaryView(empId, month);
       loadSalaryRecords();
     });
+}
+
+/* =========================
+   SALARY RECEIPT
+========================= */
+async function viewSalaryReceipt(employeeId, month) {
+  try {
+    const [salaryRes, employeeRes] = await Promise.all([
+      fetch(`${API_BASE}/salary/view?employee_id=${employeeId}&month=${encodeURIComponent(month)}`),
+      fetch(`${API_BASE}/employee/${employeeId}`),
+    ]);
+
+    if (!salaryRes.ok) {
+      const data = await salaryRes.json().catch(() => ({}));
+      throw new Error(data.error || "Salary record not found");
+    }
+    if (!employeeRes.ok) throw new Error("Employee details could not be loaded");
+
+    const salary = await salaryRes.json();
+    const employee = await employeeRes.json();
+    renderSalaryReceipt(salary, employee);
+  } catch (error) {
+    console.error("Receipt error:", error);
+    if (window.showToast) showToast(error.message || "Unable to generate receipt", "error");
+  }
+}
+
+function renderSalaryReceipt(salary, employee = {}) {
+  const target = document.getElementById("salary-receipt-print-area");
+  if (!target) return;
+
+  const money = (value) => `₹${Number(value || 0).toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+  const formatMonth = (value) => {
+    if (!value || !value.includes("-")) return value || "-";
+    const [year, month] = value.split("-");
+    return new Date(Number(year), Number(month) - 1, 1).toLocaleDateString("en-IN", {
+      month: "long",
+      year: "numeric",
+    });
+  };
+  const deductions = Math.max(0, Number(salary.base_salary || 0) - Number(salary.total_salary || 0));
+  const generatedAt = new Date().toLocaleString("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+
+  target.innerHTML = `
+    <div class="salary-receipt">
+      <div class="salary-receipt-header">
+        <div>
+          <div class="salary-receipt-company">OPERON SOLUTIONS</div>
+          <div class="salary-receipt-subtitle">HR MANAGEMENT SYSTEM</div>
+        </div>
+        <div>
+          <div class="salary-receipt-title">Salary Receipt</div>
+          <div class="salary-receipt-subtitle">${formatMonth(salary.month)}</div>
+        </div>
+      </div>
+
+      <div class="salary-receipt-employee">
+        <div class="salary-receipt-field"><span>Employee</span><strong>${salary.employee_name || employee.name || "-"}</strong></div>
+        <div class="salary-receipt-field"><span>Employee ID</span><strong>#${salary.employee_id}</strong></div>
+        <div class="salary-receipt-field"><span>Role</span><strong>${salary.employee_role || employee.role || "-"}</strong></div>
+        <div class="salary-receipt-field"><span>Salary Type</span><strong>${salary.salary_type || "-"}</strong></div>
+        <div class="salary-receipt-field"><span>Phone</span><strong>${employee.phone || "-"}</strong></div>
+        <div class="salary-receipt-field"><span>Status</span><strong>${salary.locked ? "Finalized" : "Draft"}</strong></div>
+      </div>
+
+      <table class="salary-receipt-table">
+        <thead><tr><th>Description</th><th>Amount</th></tr></thead>
+        <tbody>
+          <tr><td>Base Salary</td><td>${money(salary.base_salary)}</td></tr>
+          <tr><td>Overtime Pay</td><td>${money(salary.overtime_pay)}</td></tr>
+          <tr><td>Salary Deduction</td><td>- ${money(deductions)}</td></tr>
+        </tbody>
+      </table>
+
+      <div class="salary-receipt-total">
+        <span>NET SALARY</span>
+        <span>${money(salary.total_salary)}</span>
+      </div>
+
+      <table class="salary-receipt-table">
+        <tbody>
+          <tr><td>Working Days</td><td>${salary.working_days ?? "-"}</td></tr>
+          <tr><td>Worked Time</td><td>${formatDuration(salary.actual_worked_minutes)}</td></tr>
+          <tr><td>Deducted Holidays</td><td>${Number(salary.deducted_holidays || 0).toFixed(2)}</td></tr>
+          <tr><td>Grace Holidays Used</td><td>${Number(salary.grace_holidays_used || 0).toFixed(2)}</td></tr>
+        </tbody>
+      </table>
+
+      <div class="salary-receipt-note">
+        This receipt is generated from the stored salary calculation for ${formatMonth(salary.month)}.
+        Overtime is shown for record purposes and does not increase salary under the current payroll rules.
+        Generated ${generatedAt}.
+      </div>
+    </div>
+  `;
+
+  document.body.classList.add("printing-receipt");
+  window.setTimeout(() => window.print(), 100);
+  window.addEventListener("afterprint", () => {
+    document.body.classList.remove("printing-receipt");
+  }, { once: true });
 }

@@ -48,17 +48,46 @@ def calculate_hourly_rate(
 def recalculate_all_employee_rates():
     conn = get_connection()
     cursor = conn.cursor()
-    
-    cursor.execute("SELECT employee_id, monthly_salary FROM employees")
+
+    cursor.execute("""
+        SELECT
+            employee_id,
+            monthly_salary,
+            daily_hours,
+            working_days,
+            salary_type
+        FROM employees
+    """)
+
     employees = cursor.fetchall()
-    
+
     for emp in employees:
-        emp_id = emp[0]
-        salary = emp[1]
-        new_rate = calculate_hourly_rate(salary)
-        
-        cursor.execute("UPDATE employees SET hourly_rate = ? WHERE employee_id = ?", (new_rate, emp_id))
-        
+        (
+            emp_id,
+            salary,
+            daily_hours,
+            working_days,
+            salary_type
+        ) = emp
+
+        if salary_type == "monthly":
+            new_rate = calculate_hourly_rate(
+                salary,
+                daily_hours,
+                working_days
+            )
+        else:
+            new_rate = float(salary or 0)
+
+        cursor.execute("""
+            UPDATE employees
+            SET hourly_rate = ?
+            WHERE employee_id = ?
+        """, (
+            new_rate,
+            emp_id
+        ))
+
     conn.commit()
     cursor.close()
     conn.close()
@@ -267,10 +296,12 @@ def update_monthly_salary(employee_id, new_monthly_salary):
     cursor = conn.cursor()
 
     cursor.execute("""
-        SELECT daily_hours
-        FROM employees
-        WHERE employee_id = ?
-    """, (employee_id,))
+                    SELECT
+                        daily_hours,
+                        working_days
+                    FROM employees
+                    WHERE employee_id = ?
+                """, (employee_id,))
 
     row = cursor.fetchone()
 
@@ -280,10 +311,12 @@ def update_monthly_salary(employee_id, new_monthly_salary):
         raise ValueError("Employee not found")
 
     daily_hours = float(row[0] or 8)
+    working_days = float(row[1] or 26)
 
     hourly_rate = calculate_hourly_rate(
         new_monthly_salary,
         daily_hours,
+        working_days,
     )
 
     cursor.execute("""

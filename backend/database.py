@@ -19,13 +19,22 @@ DB_PATH = os.path.join(DB_FOLDER, "attendance.db")
 
 
 def get_connection():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(
+        DB_PATH,
+        check_same_thread=False,
+    )
+
     conn.execute("PRAGMA foreign_keys = ON;")
+    conn.execute("PRAGMA busy_timeout = 30000;")
+
     return conn
 
 def employee_db():
     conn = get_connection()
     cursor = conn.cursor()
+
+    conn.execute("PRAGMA journal_mode = WAL;")
+    conn.execute("PRAGMA synchronous = NORMAL;")
 
     # =========================
     # EMPLOYEE RECORDS
@@ -104,6 +113,78 @@ def employee_db():
             REFERENCES employees(employee_id)
     )
 """)
+    
+    
+        # ---------------------------------------------------------
+    # REPAIR EXISTING ATTENDANCE WORKED-TIME VALUES
+    # ---------------------------------------------------------
+    cursor.execute("""
+        UPDATE attendance
+        SET
+            worked_minutes =
+                CASE
+                    WHEN check_out >= check_in THEN
+                        (
+                            CAST(strftime('%H', check_out) AS INTEGER) * 60
+                            + CAST(strftime('%M', check_out) AS INTEGER)
+                        )
+                        -
+                        (
+                            CAST(strftime('%H', check_in) AS INTEGER) * 60
+                            + CAST(strftime('%M', check_in) AS INTEGER)
+                        )
+                    ELSE
+                        1440
+                        +
+                        (
+                            CAST(strftime('%H', check_out) AS INTEGER) * 60
+                            + CAST(strftime('%M', check_out) AS INTEGER)
+                        )
+                        -
+                        (
+                            CAST(strftime('%H', check_in) AS INTEGER) * 60
+                            + CAST(strftime('%M', check_in) AS INTEGER)
+                        )
+                END,
+
+            worked_hours =
+                CASE
+                    WHEN check_out >= check_in THEN
+                        (
+                            (
+                                CAST(strftime('%H', check_out) AS INTEGER) * 60
+                                + CAST(strftime('%M', check_out) AS INTEGER)
+                            )
+                            -
+                            (
+                                CAST(strftime('%H', check_in) AS INTEGER) * 60
+                                + CAST(strftime('%M', check_in) AS INTEGER)
+                            )
+                        ) / 60.0
+                    ELSE
+                        (
+                            1440
+                            +
+                            (
+                                CAST(strftime('%H', check_out) AS INTEGER) * 60
+                                + CAST(strftime('%M', check_out) AS INTEGER)
+                            )
+                            -
+                            (
+                                CAST(strftime('%H', check_in) AS INTEGER) * 60
+                                + CAST(strftime('%M', check_in) AS INTEGER)
+                            )
+                        ) / 60.0
+                END
+
+        WHERE
+            check_in IS NOT NULL
+            AND check_out IS NOT NULL
+            AND (
+                worked_minutes IS NULL
+                OR worked_hours IS NULL
+            )
+    """)
     
     
     

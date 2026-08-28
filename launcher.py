@@ -71,10 +71,8 @@ if __name__ == "__main__":
         resizable=True,
     )
 
-    # When user closes the desktop window,
-    # shut down Flask as well.
     webview.start(
-        func=None,
+        func=lambda: window.maximize(),
         debug=False,
     )
 

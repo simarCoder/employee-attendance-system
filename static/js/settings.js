@@ -3,103 +3,85 @@
  * Handles the Settings page interactions.
  */
 
-// function loadSettings() {
-//   // 1. Load Hours (Admin + Head)
-//   // fetch(`${API_BASE}/settings/hours`)
-//   //   .then((res) => res.json())
-//   //   .then((data) => {
-//   //     const input = document.getElementById("setting-hours");
-//   //     if (input) input.value = data.hours;
-//   //   })
-//   //   .catch((err) => console.error(err));
-
-//   loadWorkingDays();
-
-//   // 2. Load System Users & Renewal Date (Head Only)
-//   const role = sessionStorage.getItem("role");
-//   if (role === "head") {
-//     loadSystemUsers();
-//     loadRenewalDate();
-//     loadDemoMode(); // NEW: Load toggle state
-//   }
-// }
-
 function loadSettings() {
-  loadWorkingDays();
+  // loadWorkingDays();
 
   const role = sessionStorage.getItem("role");
 
   if (role === "head") {
-    loadSystemUsers();
     loadRenewalDate();
     loadDemoMode();
     loadSecureyeConfig();
   }
-}
 
-async function loadWorkingDays() {
-  try {
-    const response = await fetch(`${API_BASE}/settings/working-days`);
-
-    const data = await response.json();
-
-    if (!response.ok || !data.success) {
-      throw new Error(data.message || "Failed to load working days");
-    }
-
-    const checkboxes = document.querySelectorAll(".working-day-checkbox");
-
-    checkboxes.forEach((checkbox) => {
-      checkbox.checked = data.days.includes(Number(checkbox.value));
-    });
-  } catch (error) {
-    console.error("Working days load failed:", error);
+  if (role === "admin" || role === "head") {
+    loadSystemUsers();
   }
 }
 
-async function saveWorkingDays(event) {
-  event.preventDefault();
+// async function loadWorkingDays() {
+//   try {
+//     const response = await fetch(`${API_BASE}/settings/working-days`);
 
-  const checkboxes = document.querySelectorAll(".working-day-checkbox");
+//     const data = await response.json();
 
-  const days = [];
+//     if (!response.ok || !data.success) {
+//       throw new Error(data.message || "Failed to load working days");
+//     }
 
-  checkboxes.forEach((checkbox) => {
-    if (checkbox.checked) {
-      days.push(Number(checkbox.value));
-    }
-  });
+//     const checkboxes = document.querySelectorAll(".working-day-checkbox");
 
-  if (days.length === 0) {
-    showToast("Select at least one working day.", "error");
+//     checkboxes.forEach((checkbox) => {
+//       checkbox.checked = data.days.includes(Number(checkbox.value));
+//     });
+//   } catch (error) {
+//     console.error("Working days load failed:", error);
+//   }
+// }
 
-    return;
-  }
+// async function saveWorkingDays(event) {
+//   event.preventDefault();
 
-  try {
-    const response = await fetch(`${API_BASE}/settings/working-days`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        days: days,
-      }),
-    });
+//   const checkboxes = document.querySelectorAll(".working-day-checkbox");
 
-    const data = await response.json();
+//   const days = [];
 
-    if (!response.ok || !data.success) {
-      throw new Error(data.message || "Failed to save working days");
-    }
+//   checkboxes.forEach((checkbox) => {
+//     if (checkbox.checked) {
+//       days.push(Number(checkbox.value));
+//     }
+//   });
 
-    showToast("Working days saved successfully.", "success");
-  } catch (error) {
-    console.error("Working days save failed:", error);
+//   if (days.length === 0) {
+//     showToast("Select at least one working day.", "error");
 
-    showToast(error.message || "Server error.", "error");
-  }
-}
+//     return;
+//   }
+
+//   try {
+//     const response = await fetch(`${API_BASE}/settings/working-days`, {
+//       method: "POST",
+//       headers: {
+//         "Content-Type": "application/json",
+//       },
+//       body: JSON.stringify({
+//         days: days,
+//       }),
+//     });
+
+//     const data = await response.json();
+
+//     if (!response.ok || !data.success) {
+//       throw new Error(data.message || "Failed to save working days");
+//     }
+
+//     showToast("Working days saved successfully.", "success");
+//   } catch (error) {
+//     console.error("Working days save failed:", error);
+
+//     showToast(error.message || "Server error.", "error");
+//   }
+// }
 
 async function triggerDatabaseBackup() {
   try {
@@ -197,42 +179,138 @@ function toggleDemoMode() {
 }
 
 // --- SYSTEM USERS LOGIC ---
-function loadSystemUsers() {
-  const tbody = document.getElementById("system-users-table-body");
-  if (!tbody) return;
+async function loadSystemUsers() {
+  const tableBody = document.getElementById("system-users-table-body");
+  const role = sessionStorage.getItem("role");
 
-  fetch(`${API_BASE}/users`)
-    .then((res) => res.json())
-    .then((users) => {
-      tbody.innerHTML = "";
-      if (users.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">No users found.</td></tr>`;
-        return;
-      }
+  if (!tableBody) {
+    console.error("System users table body not found.");
+    return;
+  }
 
-      users.forEach((u) => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-                <td>${u.id}</td>
-                <td>${u.username}</td>
-                <td>${u.role.toUpperCase()}</td>
-                <td>
-                    <div style="display:flex; gap:0.5rem;">
-                        <input type="password" value="${u.password}" id="pass-${u.id}" class="form-control" style="padding:0.25rem 0.5rem; font-size:0.8rem; width:100px;">
-                        <button onclick="updateUserPassword(${u.id})" class="btn btn-primary" style="padding:0.25rem 0.5rem; font-size:0.8rem;">Save</button>
-                    </div>
-                </td>
-                <td>
-                    <button onclick="deleteSystemUser(${u.id})" class="btn btn-warning" style="padding:0.25rem 0.5rem; font-size:0.8rem; background:var(--danger); color:white;">Delete</button>
-                </td>
-            `;
-        tbody.appendChild(tr);
-      });
-    })
-    .catch((err) => {
-      console.error(err);
-      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:red;">Error loading users.</td></tr>`;
+  // Only Admin and Developer can view system users.
+  if (role !== "admin" && role !== "head") {
+    tableBody.innerHTML = "";
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE}/users`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
     });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.message || data.error || "Failed to load system users.",
+      );
+    }
+
+    /*
+     * Backend may return either:
+     * [
+     *   { id, username, password, role }
+     * ]
+     *
+     * or:
+     * {
+     *   users: [...]
+     * }
+     */
+    const users = Array.isArray(data)
+      ? data
+      : Array.isArray(data.users)
+        ? data.users
+        : [];
+
+    /*
+     * Permission visibility:
+     *
+     * Developer:
+     *   sees everybody
+     *
+     * Admin:
+     *   sees Admin + User
+     *   does NOT see Developer
+     *
+     * User:
+     *   sees nobody
+     */
+    const visibleUsers =
+      role === "head"
+        ? users
+        : users.filter((user) => user.role === "admin" || user.role === "user");
+
+    if (visibleUsers.length === 0) {
+      tableBody.innerHTML = `
+        <tr>
+          <td colspan="5" style="text-align: center;">
+            No system users found.
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    tableBody.innerHTML = "";
+
+    visibleUsers.forEach((user) => {
+      const row = document.createElement("tr");
+
+      const idCell = document.createElement("td");
+      idCell.textContent = user.id ?? user.user_id ?? "";
+
+      const usernameCell = document.createElement("td");
+      usernameCell.textContent = user.username ?? "";
+
+      const roleCell = document.createElement("td");
+      roleCell.textContent = user.role ?? "";
+
+      const passwordCell = document.createElement("td");
+      passwordCell.textContent = user.password ?? "••••••••";
+
+      const actionCell = document.createElement("td");
+
+      const changeButton = document.createElement("button");
+      changeButton.type = "button";
+      changeButton.className = "btn btn-sm btn-primary";
+      changeButton.textContent = "Change Password";
+
+      changeButton.addEventListener("click", () => {
+        changeUserPassword(user.id ?? user.user_id, user.username ?? "");
+      });
+
+      actionCell.appendChild(changeButton);
+
+      row.appendChild(idCell);
+      row.appendChild(usernameCell);
+      row.appendChild(roleCell);
+      row.appendChild(passwordCell);
+      row.appendChild(actionCell);
+
+      tableBody.appendChild(row);
+    });
+  } catch (error) {
+    console.error("System users loading failed:", error);
+
+    tableBody.innerHTML = `
+      <tr>
+        <td
+          colspan="5"
+          style="
+            text-align: center;
+            color: var(--danger);
+          "
+        >
+          ${error.message || "Failed to load system users."}
+        </td>
+      </tr>
+    `;
+  }
 }
 
 async function saveWorkingHours(event) {
@@ -260,56 +338,139 @@ async function saveWorkingHours(event) {
 async function addSystemUser(event) {
   event.preventDefault();
 
-  // Only HEAD
-  const role = sessionStorage.getItem("role");
-  if (role !== "head") {
-    if (window.showToast) showToast("Only HEAD can add users", "error");
+  const form = document.getElementById("add-user-form");
+  const submitButton = form?.querySelector('button[type="submit"]');
+
+  if (submitButton?.disabled) {
     return;
   }
 
-  const u = document.getElementById("new-user-name").value;
+  const currentRole = sessionStorage.getItem("role");
+
+  if (currentRole !== "head" && currentRole !== "admin") {
+    showToast("You do not have permission to create users.", "error");
+    return;
+  }
+
+  const u = document.getElementById("new-user-name").value.trim();
   const p = document.getElementById("new-user-pass").value;
   const r = document.getElementById("new-user-role").value;
+
+  if (!u || !p) {
+    showToast("Username and password are required.", "error");
+    return;
+  }
+
+  if (currentRole === "admin" && r !== "user") {
+    showToast("Admins can only create User accounts.", "error");
+    return;
+  }
+
+  if (submitButton) {
+    submitButton.disabled = true;
+    submitButton.innerText = "Creating...";
+  }
 
   try {
     const res = await fetch(`${API_BASE}/users/add`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username: u, password: p, role: r }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        username: u,
+        password: p,
+        role: r,
+      }),
     });
 
     const data = await res.json();
-    if (res.ok) {
-      if (window.showToast) showToast(data.message, "success");
-      document.getElementById("add-user-form").reset();
-      loadSystemUsers();
-    } else {
-      if (window.showToast) showToast(data.message, "error");
+
+    if (!res.ok || !data.success) {
+      throw new Error(data.message || "Failed to create user.");
     }
-  } catch (err) {
-    if (window.showToast) showToast("Server error", "error");
+
+    showToast(data.message || "User created successfully.", "success");
+
+    form.reset();
+
+    await loadSystemUsers();
+  } catch (error) {
+    console.error("Create user failed:", error);
+
+    showToast(error.message || "Server error while creating user.", "error");
+  } finally {
+    if (submitButton) {
+      submitButton.disabled = false;
+      submitButton.innerText = "Create User";
+    }
   }
 }
 
-async function updateUserPassword(userId) {
-  const newPass = document.getElementById(`pass-${userId}`).value;
-  if (!newPass) return;
+// async function updateUserPassword(userId) {
+//   const newPass = document.getElementById(`pass-${userId}`).value;
+//   if (!newPass) return;
+
+//   try {
+//     const res = await fetch(`${API_BASE}/users/password`, {
+//       method: "POST",
+//       headers: { "Content-Type": "application/json" },
+//       body: JSON.stringify({ user_id: userId, password: newPass }),
+//     });
+
+//     const data = await res.json();
+//     if (res.ok) {
+//       if (window.showToast) showToast("Password updated", "success");
+//     } else {
+//       if (window.showToast) showToast(data.message, "error");
+//     }
+//   } catch (err) {
+//     if (window.showToast) showToast("Server error", "error");
+//   }
+// }
+
+async function changeUserPassword(userId, username) {
+  const newPassword = window.prompt(`Enter new password for ${username}:`);
+
+  if (newPassword === null) {
+    return;
+  }
+
+  if (!newPassword.trim()) {
+    showToast("Password cannot be empty.", "error");
+    return;
+  }
+
+  if (newPassword.length < 4) {
+    showToast("Password must be at least 4 characters.", "error");
+    return;
+  }
 
   try {
-    const res = await fetch(`${API_BASE}/users/password`, {
+    const response = await fetch(`${API_BASE}/users/password`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id: userId, password: newPass }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        user_id: userId,
+        password: newPassword,
+      }),
     });
 
-    const data = await res.json();
-    if (res.ok) {
-      if (window.showToast) showToast("Password updated", "success");
-    } else {
-      if (window.showToast) showToast(data.message, "error");
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+      showToast(data.message || "Password update failed.", "error");
+      return;
     }
-  } catch (err) {
-    if (window.showToast) showToast("Server error", "error");
+
+    showToast(`Password updated for ${username}.`, "success");
+
+    loadSystemUsers();
+  } catch (error) {
+    console.error(error);
+    showToast("Server error while changing password.", "error");
   }
 }
 
@@ -544,5 +705,70 @@ async function testSecureyeConnection() {
   } finally {
     button.disabled = false;
     button.innerText = originalText;
+  }
+}
+
+async function changeOwnPassword(event) {
+  event.preventDefault();
+
+  const newPassword = document.getElementById("own-password").value;
+  const confirmPassword = document.getElementById("own-password-confirm").value;
+
+  if (!newPassword || !confirmPassword) {
+    showToast("Password fields are required.", "error");
+    return;
+  }
+
+  if (newPassword.length < 4) {
+    showToast("Password must be at least 4 characters.", "error");
+    return;
+  }
+
+  if (newPassword !== confirmPassword) {
+    showToast("Passwords do not match.", "error");
+    return;
+  }
+
+  const currentUserId = sessionStorage.getItem("user_id");
+
+  if (!currentUserId) {
+    showToast("Session expired. Please login again.", "error");
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE}/users/password`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        user_id: Number(currentUserId),
+        password: newPassword,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      showToast(data.message || "Failed to change password.", "error");
+      return;
+    }
+
+    showToast("Password changed successfully. Please login again.", "success");
+
+    document.getElementById("own-password").value = "";
+    document.getElementById("own-password-confirm").value = "";
+
+    setTimeout(() => {
+      fetch(`${API_BASE}/logout`, {
+        method: "POST",
+      }).finally(() => {
+        window.location.href = "/";
+      });
+    }, 1200);
+  } catch (error) {
+    console.error(error);
+    showToast("Server error while changing password.", "error");
   }
 }

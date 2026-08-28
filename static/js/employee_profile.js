@@ -43,7 +43,6 @@ function openEmployeeProfile(employeeId, event) {
   loadEmployeeSalaryHistory(employeeId);
 }
 
-
 /* =========================
    LOAD PROFILE DATA
 ========================= */
@@ -57,11 +56,12 @@ function loadEmployeeProfile(employeeId) {
       const content = document.getElementById("profile-basic-info");
       if (!content) return;
 
-      const money = (value) => `₹${Number(value || 0).toLocaleString("en-IN", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })}`;
-      const yesNo = (value) => Number(value) ? "Enabled" : "Disabled";
+      const money = (value) =>
+        `₹${Number(value || 0).toLocaleString("en-IN", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}`;
+      const yesNo = (value) => (Number(value) ? "Enabled" : "Disabled");
       const time = (value) => value || "Not configured";
 
       content.innerHTML = `
@@ -130,7 +130,8 @@ function loadEmployeeProfile(employeeId) {
     .catch((err) => {
       console.error(err);
       const content = document.getElementById("profile-basic-info");
-      if (content) content.innerHTML = `<div class="profile-error">Failed to load employee details.</div>`;
+      if (content)
+        content.innerHTML = `<div class="profile-error">Failed to load employee details.</div>`;
       if (window.showToast) showToast("Failed to load profile", "error");
     });
 }
@@ -142,9 +143,19 @@ function loadEmployeeAttendance(employeeId) {
       const target = document.getElementById("profile-attendance-summary");
       if (!target) return;
       const rows = Array.isArray(records) ? records : [];
-      const totalMinutes = rows.reduce((sum, row) => sum + Math.round(Number(row.worked_hours || 0) * 60), 0);
+      const totalMinutes = rows.reduce((sum, row) => {
+        if (row.worked_minutes !== null && row.worked_minutes !== undefined) {
+          return sum + Math.max(0, Math.round(Number(row.worked_minutes) || 0));
+        }
+
+        return (
+          sum + Math.max(0, Math.round(Number(row.worked_hours || 0) * 60))
+        );
+      }, 0);
       const totalHours = (totalMinutes / 60).toFixed(1);
-      const completed = rows.filter((row) => row.check_in && row.check_out).length;
+      const completed = rows.filter(
+        (row) => row.check_in && row.check_out,
+      ).length;
       target.innerHTML = `
         <div class="profile-stat-grid">
           <div><span>Attendance Records</span><strong>${rows.length}</strong></div>
@@ -177,17 +188,24 @@ function loadEmployeeSalaryHistory(employeeId) {
           <table class="table">
             <thead><tr><th>Month</th><th>Base Salary</th><th>Deductions</th><th>Total</th><th>Status</th><th></th></tr></thead>
             <tbody>
-              ${records.slice(0, 12).map((record) => {
-                const deductions = Math.max(0, Number(record.base_salary || 0) - Number(record.total_salary || 0));
-                return `<tr>
+              ${records
+                .slice(0, 12)
+                .map((record) => {
+                  const deductions = Math.max(
+                    0,
+                    Number(record.base_salary || 0) -
+                      Number(record.total_salary || 0),
+                  );
+                  return `<tr>
                   <td>${record.month}</td>
-                  <td>₹${Number(record.base_salary || 0).toLocaleString("en-IN", {minimumFractionDigits: 2})}</td>
-                  <td>₹${deductions.toLocaleString("en-IN", {minimumFractionDigits: 2})}</td>
-                  <td><strong>₹${Number(record.total_salary || 0).toLocaleString("en-IN", {minimumFractionDigits: 2})}</strong></td>
+                  <td>₹${Number(record.base_salary || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                  <td>₹${deductions.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                  <td><strong>₹${Number(record.total_salary || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</strong></td>
                   <td><span class="status-badge">${record.locked ? "Locked" : "Draft"}</span></td>
                   <td><button class="btn profile-receipt-btn" onclick="viewSalaryReceipt(${employeeId}, '${record.month}')">Receipt</button></td>
                 </tr>`;
-              }).join("")}
+                })
+                .join("")}
             </tbody>
           </table>
         </div>
@@ -380,7 +398,8 @@ function openEmployeeDetailsSection(navElement) {
    BACK BUTTON
 ========================= */
 function backToEmployeeList() {
-  const returnSection = PROFILE_RETURN_SECTION || PREVIOUS_SECTION || "overview";
+  const returnSection =
+    PROFILE_RETURN_SECTION || PREVIOUS_SECTION || "overview";
 
   if (returnSection === "employee-profile") {
     document.getElementById("profile-detail-view").style.display = "none";
@@ -393,7 +412,6 @@ function backToEmployeeList() {
   document.getElementById("profile-list-view").style.display = "block";
   switchSection(returnSection);
 }
-
 
 /* =========================
    HELPER: 12-HOUR DATE FORMATTER

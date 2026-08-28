@@ -69,4 +69,5 @@ Thumbs.db
 # Local test/output files
 # ==============================
 
-*.bak
+*.bak.session_secret
+*.session_secret

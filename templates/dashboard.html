@@ -202,6 +202,15 @@
             <span class="nav-label">Employee Details</span>
           </div>
 
+          <div
+            class="nav-item"
+            onclick="switchSection('account', this)"
+            title="My Account"
+          >
+            <span class="nav-icon">◉</span>
+            <span class="nav-label">My Account</span>
+          </div>
+
           <!-- SETTINGS (Hidden for Users) -->
           <div
             class="nav-item special-access-only"
@@ -1069,7 +1078,57 @@
             </div>
           </div>
         </section>
+        <!-- MY ACCOUNT -->
+        <section id="account" class="section">
+          <div class="content-header">
+            <div>
+              <h2>My Account</h2>
+              <p>Manage your login credentials.</p>
+            </div>
+          </div>
 
+          <div class="card" style="max-width: 500px">
+            <h3>Change My Password</h3>
+
+            <p
+              style="
+                color: var(--text-muted);
+                font-size: 0.9rem;
+                margin-bottom: 1rem;
+              "
+            >
+              Change the password for your currently logged-in account.
+            </p>
+
+            <form onsubmit="changeOwnPassword(event)">
+              <div class="form-group">
+                <label class="form-label">New Password</label>
+                <input
+                  type="password"
+                  id="own-password"
+                  class="form-control"
+                  minlength="4"
+                  required
+                />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Confirm Password</label>
+                <input
+                  type="password"
+                  id="own-password-confirm"
+                  class="form-control"
+                  minlength="4"
+                  required
+                />
+              </div>
+
+              <button type="submit" class="btn btn-primary">
+                Change Password
+              </button>
+            </form>
+          </div>
+        </section>
         <!-- 6. SETTINGS -->
         <section id="settings" class="section">
           <div class="content-header">
@@ -1142,7 +1201,7 @@
           </div>
 
           <!-- WORKING SCHEDULE -->
-          <div class="card" style="max-width: 500px">
+          <!-- <div class="card" style="max-width: 500px">
             <h3>Working Schedule</h3>
 
             <p
@@ -1237,7 +1296,7 @@
                 Save Working Days
               </button>
             </form>
-          </div>
+          </div> -->
           <!-- SECUREYE DEVICE CONFIGURATION (DEVELOPER ONLY) -->
           <div
             class="card head-only"
@@ -1371,7 +1430,10 @@
             </button>
           </div>
 
-          <div class="card head-only" style="max-width: 500px; display: none">
+          <div
+            class="card system-user-management"
+            style="max-width: 500px; display: none"
+          >
             <h3>Add System User</h3>
             <p
               style="
@@ -1417,7 +1479,10 @@
             </form>
           </div>
 
-          <div class="card head-only" style="display: none; margin-top: 2rem">
+          <div
+            class="card system-user-management"
+            style="display: none; margin-top: 2rem"
+          >
             <h3>User Management</h3>
             <div class="table-container">
               <table class="table">
@@ -1426,13 +1491,13 @@
                     <th>ID</th>
                     <th>Username</th>
                     <th>Role</th>
-                    <!-- <th>Password</th> -->
+                    <th>Password</th>
                     <th>Action</th>
                   </tr>
                 </thead>
                 <tbody id="system-users-table-body">
                   <tr>
-                    <td colspan="4" style="text-align: center">Loading...</td>
+                    <td colspan="5" style="text-align: center">Loading...</td>
                   </tr>
                 </tbody>
               </table>
@@ -1603,10 +1668,27 @@
             .forEach((el) => (el.style.display = "none"));
         }
 
+        if (role !== "head") {
+          document
+            .querySelectorAll(".developer-only-option")
+            .forEach((option) => {
+              option.remove();
+            });
+        }
+
         if (role === "head") {
           document
             .querySelectorAll(".head-only")
             .forEach((el) => (el.style.display = "block"));
+        }
+        if (role === "admin" || role === "head") {
+          document.querySelectorAll(".system-user-management").forEach((el) => {
+            el.style.display = "block";
+          });
+        } else {
+          document.querySelectorAll(".system-user-management").forEach((el) => {
+            el.style.display = "none";
+          });
         }
 
         loadEmployees();

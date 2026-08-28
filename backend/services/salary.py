@@ -172,7 +172,8 @@ def generate_salary(employee_id, month, role=None):
                 overtime_enabled,
                 overtime_rate,
                 salary_type,
-                COALESCE(grace_holidays, 0)
+                COALESCE(grace_holidays, 0),
+                working_days
             FROM employees
             WHERE employee_id = ?
         """, (employee_id,))
@@ -190,7 +191,8 @@ def generate_salary(employee_id, month, role=None):
             overtime_enabled,
             overtime_rate,
             salary_type,
-            grace_holidays
+            grace_holidays,
+            working_days
         ) = employee
 
         monthly_salary = float(monthly_salary or 0)
@@ -199,17 +201,22 @@ def generate_salary(employee_id, month, role=None):
         overtime_rate = float(overtime_rate or 1.0)
         salary_type = salary_type or "monthly"
         grace_holidays = max(0.0, float(grace_holidays or 0))
+        
+        working_days = float(working_days or 0)
+
+        if working_days <= 0 or working_days > 31:
+            raise Exception("Employee working days must be between 1 and 31")
 
         try:
             year, month_num = map(int, month.split("-"))
         except ValueError:
             raise Exception("Month must be in YYYY-MM format")
 
-        working_days = get_working_days_for_month(
-            cursor,
-            year,
-            month_num
-        )
+        # working_days = get_working_days_for_month(
+        #     cursor,
+        #     year,
+        #     month_num
+        # )
 
         expected_monthly_minutes = (
             working_days * daily_hours * 60

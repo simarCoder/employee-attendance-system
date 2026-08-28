@@ -176,8 +176,22 @@ def check_in(employee_id, custom_time=None, target_date=None):
                          worked_hours = 0.0
                     else:
                         worked_hours = (check_out_dt - check_in_dt).seconds / 3600
-                        
-                    cursor.execute("UPDATE attendance SET worked_hours = ? WHERE attendance_id = ?", (worked_hours, attendance_id))
+                        worked_minutes = int(round(worked_hours * 60))
+
+                    cursor.execute(
+                            """
+                            UPDATE attendance
+                            SET
+                                worked_hours = ?,
+                                worked_minutes = ?
+                            WHERE attendance_id = ?
+                            """,
+                            (
+                                worked_hours,
+                                worked_minutes,
+                                attendance_id
+                            )
+                        )
                 except ValueError:
                     pass # Ignore time format errors during recalc
 
@@ -253,6 +267,7 @@ def check_out(employee_id, custom_time=None, target_date=None):
              raise ValueError("Check-out time cannot be before check-in time")
 
         worked_hours = (check_out_dt - check_in_dt).seconds / 3600
+        worked_minutes = int(round(worked_hours * 60))
     except ValueError as ve:
         cursor.close()
         conn.close()
@@ -263,12 +278,14 @@ def check_out(employee_id, custom_time=None, target_date=None):
             SET
                 check_out = ?,
                 check_out_source = ?,
-                worked_hours = ?
+                worked_hours = ?,
+                worked_minutes = ?
             WHERE attendance_id = ?
         """, (
             now,
             "admin" if custom_time else "manual",
             worked_hours,
+            worked_minutes,
             attendance_id
         ))
 
@@ -282,11 +299,16 @@ def get_attendance_by_employee(employee_id):
     cursor = conn.cursor()
 
     cursor.execute("""
-        SELECT date, check_in, check_out, worked_hours
-        FROM attendance
-        WHERE employee_id = ?
-        ORDER BY date DESC
-    """, (employee_id,))
+                    SELECT
+                        date,
+                        check_in,
+                        check_out,
+                        worked_hours,
+                        worked_minutes
+                    FROM attendance
+                    WHERE employee_id = ?
+                    ORDER BY date DESC
+                """, (employee_id,))
 
     rows = cursor.fetchall()
 

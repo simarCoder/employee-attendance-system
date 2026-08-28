@@ -72,13 +72,13 @@ from backend.services.settings import (
     get_all_system_users,
     update_user_password,
     delete_system_user,
+    create_audit_log,
+    get_audit_logs,
     update_subscription_expiry,
     get_subscription_expiry_encrypted,
     create_database_backup,
     get_demo_mode_status, # NEW
     update_demo_mode,      # NEW
-    get_working_days,
-    update_working_days,
     get_secureye_config,
     update_secureye_config
 )
@@ -116,6 +116,28 @@ else:
     static_folder = os.path.join(project_root, 'static')
     BASE_DIR = project_root
     app = Flask(__name__, template_folder=template_folder, static_folder=static_folder)
+
+# ---------------------------------------------------------
+# FLASK SESSION CONFIGURATION
+# ---------------------------------------------------------
+SESSION_SECRET = os.environ.get("HR_SESSION_SECRET")
+
+if not SESSION_SECRET:
+    secret_file = os.path.join(BASE_DIR, ".session_secret")
+
+    if os.path.exists(secret_file):
+        with open(secret_file, "r", encoding="utf-8") as f:
+            SESSION_SECRET = f.read().strip()
+    else:
+        SESSION_SECRET = secrets.token_hex(32)
+
+        with open(secret_file, "w", encoding="utf-8") as f:
+            f.write(SESSION_SECRET)
+
+app.config["SECRET_KEY"] = SESSION_SECRET
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SECURE"] = False
 
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'UPLOADS')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -302,15 +324,6 @@ def remove_biometric_mapping_route():
 # -------------------------
 @app.route("/")
 def home():
-        # New secret every time Flask starts.
-    # This intentionally invalidates every previous session.
-    app.secret_key = secrets.token_hex(32)
-
-    app.config.update(
-        SESSION_COOKIE_HTTPONLY=True,
-        SESSION_COOKIE_SAMESITE="Lax",
-        SESSION_COOKIE_SECURE=False,   # localhost / HTTP
-    )
     encrypted_expiry = get_subscription_expiry_encrypted()
     expiry_date = None
     if encrypted_expiry:
@@ -452,6 +465,13 @@ def login_route():
 
     session["user_id"] = user_id
     session["role"] = role
+    
+    create_audit_log(
+        user_id=user_id,
+        action="LOGIN",
+        entity="AUTH",
+        reason="Successful login"
+    )
 
     return jsonify({
         "success": True,
@@ -472,6 +492,16 @@ def get_current_session():
 
 @app.route("/logout", methods=["POST"])
 def logout():
+    user_id = session.get("user_id")
+
+    if user_id:
+        create_audit_log(
+            user_id=user_id,
+            action="LOGOUT",
+            entity="AUTH",
+            reason="User logged out"
+        )
+
     session.clear()
 
     return jsonify({
@@ -698,14 +728,18 @@ def checkout_route():
 @app.route("/attendance/<int:employee_id>", methods=["GET"])
 def attendance_view_route(employee_id):
     records = get_attendance_by_employee(employee_id)
+
     result = []
+
     for r in records:
         result.append({
             "date": r[0],
             "check_in": r[1],
             "check_out": r[2],
-            "worked_hours": r[3]
+            "worked_hours": r[3],
+            "worked_minutes": r[4]
         })
+
     return jsonify(result)
 
 # -------------------------
@@ -980,46 +1014,46 @@ def update_hours_route():
         return jsonify({"message": str(e)}), 400
     
 
-@app.route("/settings/working-days", methods=["GET"])
-def get_working_days_route():
-    try:
-        days = get_working_days()
+# @app.route("/settings/working-days", methods=["GET"])
+# def get_working_days_route():
+#     try:
+#         days = get_working_days()
 
-        return jsonify({
-            "success": True,
-            "days": days
-        })
+#         return jsonify({
+#             "success": True,
+#             "days": days
+#         })
 
-    except Exception as e:
-        print("Get working days error:", e)
+#     except Exception as e:
+#         print("Get working days error:", e)
 
-        return jsonify({
-            "success": False,
-            "message": str(e)
-        }), 500
+#         return jsonify({
+#             "success": False,
+#             "message": str(e)
+#         }), 500
 
 
-@app.route("/settings/working-days", methods=["POST"])
-def update_working_days_route():
-    try:
-        data = request.get_json() or {}
+# @app.route("/settings/working-days", methods=["POST"])
+# def update_working_days_route():
+#     try:
+#         data = request.get_json() or {}
 
-        days = data.get("days")
+#         days = data.get("days")
 
-        update_working_days(days)
+#         update_working_days(days)
 
-        return jsonify({
-            "success": True,
-            "message": "Working days updated successfully"
-        })
+#         return jsonify({
+#             "success": True,
+#             "message": "Working days updated successfully"
+#         })
 
-    except Exception as e:
-        print("Update working days error:", e)
+#     except Exception as e:
+#         print("Update working days error:", e)
 
-        return jsonify({
-            "success": False,
-            "message": str(e)
-        }), 400
+#         return jsonify({
+#             "success": False,
+#             "message": str(e)
+#         }), 400
 
 
 
@@ -1080,6 +1114,12 @@ def add_user_route():
             password,
             role
         )
+        create_audit_log(
+            user_id=session.get("user_id"),
+            action="CREATE_USER",
+            entity=f"user:{username}",
+            reason=f"Created system user with role {role}"
+        )
 
         return jsonify({
             "success": True,
@@ -1120,11 +1160,29 @@ def get_users_route():
         result = []
 
         for u in users:
-            result.append({
-                "id": u[0],
-                "username": u[1],
-                "role": u[3]
-            })
+            user_id = u[0]
+            username = u[1]
+            password = u[2]
+            role = u[3]
+
+            # Developer sees everyone.
+            if current_role == "head":
+                result.append({
+                    "id": user_id,
+                    "username": username,
+                    "password": password,
+                    "role": role
+                })
+                continue
+
+            # Admin sees only Users and Admins.
+            if current_role == "admin" and role in ("user", "admin"):
+                result.append({
+                    "id": user_id,
+                    "username": username,
+                    "password": password,
+                    "role": role
+                })
 
         return jsonify(result)
 
@@ -1135,14 +1193,6 @@ def get_users_route():
         }), 500
 
 
-# @app.route("/users/password", methods=["POST"])
-# def update_password_route():
-#     data = request.json
-#     try:
-#         update_user_password(data.get("user_id"), data.get("password"))
-#         return jsonify({"message": "Password updated"})
-#     except Exception as e:
-#         return jsonify({"message": str(e)}), 400
 
 @app.route("/users/password", methods=["POST"])
 @login_required
@@ -1186,51 +1236,106 @@ def update_password_route():
     target_username = target[1]
     target_role = target[2]
 
-    # ---------------------------------------------------------
-    # PASSWORD PERMISSIONS
-    #
-    # HEAD / DEVELOPER
-    # -> Can change everyone's password
-    #
-    # ADMIN
-    # -> Can change own password
-    # -> Can change USER passwords
-    # -> Cannot change another ADMIN
-    # -> Cannot change DEVELOPER
-    #
-    # USER
-    # -> Cannot change any password
-    # ---------------------------------------------------------
+    # # ---------------------------------------------------------
+    # # PASSWORD PERMISSIONS
+    # #
+    # # USER
+    # # -> Can change own password
+    # # -> Can change User passwords
+    # # -> Cannot change Admin/Developer
+    # #
+    # # ADMIN
+    # # -> Can change own password
+    # # -> Can change User passwords
+    # # -> Can change Admin passwords
+    # # -> Cannot change Developer
+    # #
+    # # DEVELOPER / HEAD
+    # # -> Can change everyone's password
+    # # ---------------------------------------------------------
+
+    # if current_role == "head":
+    #     # Developer has full password control.
+    #     pass
+
+    # elif current_role == "admin":
+    #     # Admin can change:
+    #     # 1. Own password
+    #     # 2. Any User password
+    #     # 3. Any Admin password
+    #     if target_role in ("user", "admin"):
+    #         pass
+    #     else:
+    #         return jsonify({
+    #             "success": False,
+    #             "message": "Admins cannot change Developer passwords."
+    #         }), 403
+
+    # elif current_role == "user":
+    #     # User can change:
+    #     # 1. Own password
+    #     # 2. Other User passwords
+    #     if target_role == "user":
+    #         pass
+    #     else:
+    #         return jsonify({
+    #             "success": False,
+    #             "message": "Users can only change User passwords."
+    #         }), 403
+
+    # else:
+    #     return jsonify({
+    #         "success": False,
+    #         "message": "Invalid account role."
+    #     }), 403
+
+
+# ---------------------------------------------------------
+# PASSWORD PERMISSIONS
+# ---------------------------------------------------------
 
     if current_role == "head":
 
-        # Developer has full password control
+        # Developer can change everybody.
         pass
+
 
     elif current_role == "admin":
 
-        # Admin can change own password
+        # Admin can change own password.
         if target_user_id_db == current_user_id:
             pass
 
-        # Admin can change User password
+        # Admin can change normal User passwords.
         elif target_role == "user":
             pass
 
-        # Admin cannot change Admin or Developer
+        # Admin cannot change Developer password.
         else:
             return jsonify({
                 "success": False,
-                "message": "Admins can only change their own password or User passwords."
+                "error": "Admins cannot change Developer passwords."
             }), 403
+
+
+    elif current_role == "user":
+
+        # User can change ONLY their own password.
+        if target_user_id_db != current_user_id:
+            return jsonify({
+                "success": False,
+                "error": "Users can only change their own password."
+            }), 403
+
 
     else:
 
-        # Normal User
         return jsonify({
             "success": False,
-            "message": "Users cannot change passwords."
+            "error": "Unauthorized."
         }), 403
+
+
 
     # ---------------------------------------------------------
     # ACTUALLY UPDATE PASSWORD
@@ -1240,6 +1345,12 @@ def update_password_route():
         update_user_password(
             target_user_id_db,
             new_password
+        )
+        create_audit_log(
+            user_id=current_user_id,
+            action="CHANGE_PASSWORD",
+            entity=f"user:{target_user_id_db}",
+            reason=f"Password changed for {target_username}"
         )
 
         return jsonify({
@@ -1326,6 +1437,13 @@ def delete_user_route():
             target_user_id,
             current_user_id
         )
+        
+        create_audit_log(
+            user_id=current_user_id,
+            action="DELETE_USER",
+            entity=f"user:{target_user_id}",
+            reason=f"Deleted system user with role {target_role}"
+        )
 
         return jsonify({
             "success": True,
@@ -1356,37 +1474,63 @@ def update_renewal_route():
         return jsonify({"message": str(e)}), 400
     
     
-@app.route("/api/settings/working-days", methods=["GET"])
-def api_get_working_days():
-    try:
-        return jsonify({
-            "success": True,
-            "days": get_working_days()
-        })
-    except Exception as exc:
+# @app.route("/api/settings/working-days", methods=["GET"])
+# def api_get_working_days():
+#     try:
+#         return jsonify({
+#             "success": True,
+#             "days": get_working_days()
+#         })
+#     except Exception as exc:
+#         return jsonify({
+#             "success": False,
+#             "error": str(exc)
+#         }), 500
+
+# @app.route("/api/settings/working-days", methods=["POST"])
+# def api_update_working_days():
+#     try:
+#         data = request.get_json() or {}
+
+#         days = data.get("days", [])
+
+#         update_working_days(days)
+
+#         return jsonify({
+#             "success": True,
+#             "message": "Working days updated successfully."
+#         })
+
+#     except Exception as exc:
+#         return jsonify({
+#             "success": False,
+#             "error": str(exc)
+#         }), 500
+        
+        
+        
+@app.route("/audit-logs", methods=["GET"])
+@login_required
+def audit_logs_route():
+    if session.get("role") != "head":
         return jsonify({
             "success": False,
-            "error": str(exc)
-        }), 500
+            "message": "Developer access required."
+        }), 403
 
-@app.route("/api/settings/working-days", methods=["POST"])
-def api_update_working_days():
     try:
-        data = request.get_json() or {}
-
-        days = data.get("days", [])
-
-        update_working_days(days)
+        limit = request.args.get("limit", 200, type=int)
+        limit = max(1, min(limit, 500))
 
         return jsonify({
             "success": True,
-            "message": "Working days updated successfully."
+            "logs": get_audit_logs(limit)
         })
 
-    except Exception as exc:
+    except Exception as e:
         return jsonify({
             "success": False,
-            "error": str(exc)
+            "message": str(e)
         }), 500
 
 
@@ -1394,18 +1538,33 @@ def api_update_working_days():
 # DEMO MODE ROUTES (NEW)
 # -------------------------
 @app.route("/settings/demo", methods=["GET"])
+@role_required("head")
 def get_demo_route():
     status = get_demo_mode_status()
-    return jsonify({"enabled": status})
+    return jsonify({
+        "success": True,
+        "enabled": status
+    })
+
 
 @app.route("/settings/demo", methods=["POST"])
+@role_required("head")
 def update_demo_route():
-    data = request.json
+    data = request.get_json() or {}
+
     try:
         update_demo_mode(data.get("enabled"))
-        return jsonify({"message": "Demo mode updated"})
+
+        return jsonify({
+            "success": True,
+            "message": "Demo mode updated successfully."
+        })
+
     except Exception as e:
-        return jsonify({"message": str(e)}), 500
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        }), 500
 
 # -------------------------
 # SHUTDOWN ROUTE

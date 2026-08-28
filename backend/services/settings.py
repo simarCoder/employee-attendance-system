@@ -1,6 +1,6 @@
 import os
 import sys
-import shutil
+import sqlite3
 from datetime import datetime
 from backend.database import get_connection
 from backend.services.employee import recalculate_all_employee_rates
@@ -179,25 +179,66 @@ def update_demo_mode(enabled):
     conn.close()
 
 # --- BACKUP LOGIC ---
+# def create_database_backup():
+#     """
+#     Creates a timestamped copy of the database in the BACKUPS folder.
+#     """
+#     if not os.path.exists(DB_SOURCE_PATH):
+#         raise FileNotFoundError(f"Live database file not found at {DB_SOURCE_PATH}")
+
+#     # Ensure Backup Directory Exists
+#     os.makedirs(BACKUP_DIR, exist_ok=True)
+
+#     # Create filename: attendance_backup_YYYY-MM-DD_HH-MM-SS.db
+#     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+#     backup_filename = f"attendance_backup_{timestamp}.db"
+#     backup_path = os.path.join(BACKUP_DIR, backup_filename)
+
+#     # Copy the file (copy2 preserves metadata)
+#     shutil.copy2(DB_SOURCE_PATH, backup_path)
+    
+#     return backup_filename
+
 def create_database_backup():
     """
-    Creates a timestamped copy of the database in the BACKUPS folder.
+    Creates a consistent SQLite backup using SQLite's backup API.
+    Safe to use while the application is running.
     """
     if not os.path.exists(DB_SOURCE_PATH):
-        raise FileNotFoundError(f"Live database file not found at {DB_SOURCE_PATH}")
+        raise FileNotFoundError(
+            f"Live database file not found at {DB_SOURCE_PATH}"
+        )
 
-    # Ensure Backup Directory Exists
     os.makedirs(BACKUP_DIR, exist_ok=True)
 
-    # Create filename: attendance_backup_YYYY-MM-DD_HH-MM-SS.db
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     backup_filename = f"attendance_backup_{timestamp}.db"
     backup_path = os.path.join(BACKUP_DIR, backup_filename)
 
-    # Copy the file (copy2 preserves metadata)
-    shutil.copy2(DB_SOURCE_PATH, backup_path)
-    
+    source_conn = None
+    backup_conn = None
+
+    try:
+        source_conn = get_connection()
+
+        backup_conn = sqlite3.connect(
+            backup_path,
+            timeout=30
+        )
+
+        source_conn.backup(backup_conn)
+
+        backup_conn.commit()
+
+    finally:
+        if backup_conn:
+            backup_conn.close()
+
+        if source_conn:
+            source_conn.close()
+
     return backup_filename
+
 
 # --- SaaS SUBSCRIPTION LOGIC ---
 
@@ -225,20 +266,20 @@ def get_subscription_expiry_encrypted():
 
 # --- USER MANAGEMENT HELPERS ---
 
-def _renumber_users(cursor):
-    cursor.execute("PRAGMA foreign_keys = OFF")
-    cursor.execute("SELECT user_id FROM users ORDER BY user_id ASC")
-    users = cursor.fetchall()
+# def _renumber_users(cursor):
+#     cursor.execute("PRAGMA foreign_keys = OFF")
+#     cursor.execute("SELECT user_id FROM users ORDER BY user_id ASC")
+#     users = cursor.fetchall()
     
-    for index, user in enumerate(users):
-        current_id = user[0]
-        expected_id = index + 1
-        if current_id != expected_id:
-            cursor.execute("UPDATE users SET user_id = ? WHERE user_id = ?", (expected_id, current_id))
+#     for index, user in enumerate(users):
+#         current_id = user[0]
+#         expected_id = index + 1
+#         if current_id != expected_id:
+#             cursor.execute("UPDATE users SET user_id = ? WHERE user_id = ?", (expected_id, current_id))
 
-    cursor.execute("DELETE FROM sqlite_sequence WHERE name='users'")
-    cursor.execute("INSERT INTO sqlite_sequence (name, seq) VALUES ('users', ?)", (len(users),))
-    cursor.execute("PRAGMA foreign_keys = ON")
+#     cursor.execute("DELETE FROM sqlite_sequence WHERE name='users'")
+#     cursor.execute("INSERT INTO sqlite_sequence (name, seq) VALUES ('users', ?)", (len(users),))
+#     cursor.execute("PRAGMA foreign_keys = ON")
 
 def add_system_user(username, password, role):
     conn = get_connection()
@@ -256,27 +297,10 @@ def add_system_user(username, password, role):
         INSERT INTO users (username, password_hash, role)
         VALUES (?, ?, ?)
     """, (username, encrypted_pw, role))
-    _renumber_users(cursor)
+    # _renumber_users(cursor)
     conn.commit()
     cursor.close()
     conn.close()
-
-# def get_all_system_users():
-#     conn = get_connection()
-#     cursor = conn.cursor()
-#     cursor.execute("SELECT user_id, username, password_hash, role FROM users ORDER BY user_id ASC")
-#     rows = cursor.fetchall()
-#     cursor.close()
-#     conn.close()
-    
-#     # Decrypt passwords for display
-#     users = []
-#     for row in rows:
-#         user_id, username, encrypted_pw, role = row
-#         decrypted_pw = decrypt_password(encrypted_pw)
-#         users.append((user_id, username, decrypted_pw, role))
-        
-#     return users
 
 def get_all_system_users():
     conn = get_connection()
@@ -293,20 +317,25 @@ def get_all_system_users():
     cursor.close()
     conn.close()
 
-    # Never return/decrypt passwords for display.
     users = []
 
     for row in rows:
         user_id, username, encrypted_pw, role = row
 
+        try:
+            password = decrypt_password(encrypted_pw)
+        except Exception:
+            password = None
+
         users.append((
             user_id,
             username,
-            None,
+            password,
             role
         ))
 
     return users
+
 
 def update_user_password(user_id, new_password):
     conn = get_connection()
@@ -320,41 +349,112 @@ def update_user_password(user_id, new_password):
     cursor.close()
     conn.close()
 
+# def delete_system_user(target_user_id, current_user_id_requesting=None):
+#     conn = get_connection()
+#     cursor = conn.cursor()
+    
+#     cursor.execute("SELECT role FROM users WHERE user_id = ?", (target_user_id,))
+#     target = cursor.fetchone()
+    
+#     if not target:
+#         cursor.close()
+#         conn.close()
+#         raise ValueError("User not found")
+        
+#     target_role = target[0]
+
+#     if current_user_id_requesting and str(target_user_id) == str(current_user_id_requesting):
+#         cursor.close()
+#         conn.close()
+#         raise ValueError("You cannot delete your own account while logged in.")
+
+#     if target_role == 'head':
+#         cursor.execute("SELECT COUNT(*) FROM users WHERE role = 'head'")
+#         head_count = cursor.fetchone()[0]
+#         if head_count <= 1:
+#             cursor.close()
+#             conn.close()
+#             raise ValueError("Cannot delete the only remaining Head/Developer account.")
+
+#     # Preserve audit history even after the user account is deleted.
+#     cursor.execute(
+#         "UPDATE audit_logs SET user_id = NULL WHERE user_id = ?",
+#         (target_user_id,)
+#     )
+
+#     cursor.execute(
+#         "DELETE FROM users WHERE user_id = ?",
+#         (target_user_id,)
+#     )
+
+#     conn.commit()
+    
+#     conn.commit()
+#     cursor.close()
+#     conn.close()
+    
+    
 def delete_system_user(target_user_id, current_user_id_requesting=None):
     conn = get_connection()
     cursor = conn.cursor()
-    
-    cursor.execute("SELECT role FROM users WHERE user_id = ?", (target_user_id,))
-    target = cursor.fetchone()
-    
-    if not target:
+
+    try:
+        cursor.execute(
+            "SELECT role FROM users WHERE user_id = ?",
+            (target_user_id,)
+        )
+
+        target = cursor.fetchone()
+
+        if not target:
+            raise ValueError("User not found")
+
+        target_role = target[0]
+
+        # Prevent deleting the currently logged-in account.
+        if (
+            current_user_id_requesting
+            and str(target_user_id) == str(current_user_id_requesting)
+        ):
+            raise ValueError(
+                "You cannot delete your own account while logged in."
+            )
+
+        # Never allow the final Head/Developer account to be deleted.
+        if target_role == "head":
+            cursor.execute(
+                "SELECT COUNT(*) FROM users WHERE role = 'head'"
+            )
+
+            head_count = cursor.fetchone()[0]
+
+            if head_count <= 1:
+                raise ValueError(
+                    "Cannot delete the only remaining Head/Developer account."
+                )
+
+        # Preserve audit history.
+        # The account can disappear, but the audit record must remain.
+        cursor.execute(
+            "UPDATE audit_logs SET user_id = NULL WHERE user_id = ?",
+            (target_user_id,)
+        )
+
+        # Delete the actual user.
+        cursor.execute(
+            "DELETE FROM users WHERE user_id = ?",
+            (target_user_id,)
+        )
+
+        conn.commit()
+
+    except Exception:
+        conn.rollback()
+        raise
+
+    finally:
         cursor.close()
         conn.close()
-        raise ValueError("User not found")
-        
-    target_role = target[0]
-
-    if current_user_id_requesting and str(target_user_id) == str(current_user_id_requesting):
-        cursor.close()
-        conn.close()
-        raise ValueError("You cannot delete your own account while logged in.")
-
-    if target_role == 'head':
-        cursor.execute("SELECT COUNT(*) FROM users WHERE role = 'head'")
-        head_count = cursor.fetchone()[0]
-        if head_count <= 1:
-            cursor.close()
-            conn.close()
-            raise ValueError("Cannot delete the only remaining Head/Developer account.")
-
-    cursor.execute("DELETE FROM users WHERE user_id = ?", (target_user_id,))
-    _renumber_users(cursor)
-    
-    conn.commit()
-    cursor.close()
-    conn.close()
-    
-    
     
 # ========== DEVICE COONFIGURATION =====================
 def get_secureye_config():
@@ -428,3 +528,81 @@ def update_secureye_config(ip, port, timeout):
     conn.close()
 
     return True 
+
+
+
+# ---------------------------------------------------------
+# AUDIT LOGS
+# ---------------------------------------------------------
+
+def create_audit_log(user_id, action, entity=None, reason=None):
+    """
+    Create an audit log entry for important system actions.
+    """
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            INSERT INTO audit_logs (
+                user_id,
+                action,
+                entity,
+                timestamp,
+                reason
+            )
+            VALUES (?, ?, ?, CURRENT_TIMESTAMP, ?)
+        """, (
+            user_id,
+            action,
+            entity,
+            reason
+        ))
+
+        conn.commit()
+
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def get_audit_logs(limit=200):
+    """
+    Return the most recent audit log entries.
+    """
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT
+                log_id,
+                user_id,
+                action,
+                entity,
+                timestamp,
+                reason
+            FROM audit_logs
+            ORDER BY log_id DESC
+            LIMIT ?
+        """, (int(limit),))
+
+        rows = cursor.fetchall()
+
+        return [
+            {
+                "log_id": row[0],
+                "user_id": row[1],
+                "action": row[2],
+                "entity": row[3],
+                "timestamp": row[4],
+                "reason": row[5]
+            }
+            for row in rows
+        ]
+
+    finally:
+        cursor.close()
+        conn.close()

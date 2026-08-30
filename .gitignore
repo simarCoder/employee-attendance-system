@@ -71,3 +71,5 @@ Thumbs.db
 
 *.bak.session_secret
 *.session_secret
+
+token_password

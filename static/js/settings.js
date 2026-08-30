@@ -270,8 +270,42 @@ async function loadSystemUsers() {
       const roleCell = document.createElement("td");
       roleCell.textContent = user.role ?? "";
 
+      // Password field with show/hide button
       const passwordCell = document.createElement("td");
-      passwordCell.textContent = user.password ?? "••••••••";
+
+      const passwordWrapper = document.createElement("div");
+      passwordWrapper.style.display = "flex";
+      passwordWrapper.style.alignItems = "center";
+      passwordWrapper.style.gap = "6px";
+
+      const passwordInput = document.createElement("input");
+      passwordInput.type = "password";
+      passwordInput.value = user.password ?? "";
+      passwordInput.readOnly = true;
+      passwordInput.className = "form-control";
+      passwordInput.style.maxWidth = "220px";
+
+      const eyeButton = document.createElement("button");
+      eyeButton.type = "button";
+      eyeButton.className = "btn btn-sm";
+      eyeButton.textContent = "👁";
+      eyeButton.title = "Show password";
+
+      eyeButton.addEventListener("click", () => {
+        if (passwordInput.type === "password") {
+          passwordInput.type = "text";
+          eyeButton.textContent = "⌣";
+          eyeButton.title = "Hide password";
+        } else {
+          passwordInput.type = "password";
+          eyeButton.textContent = "👁";
+          eyeButton.title = "Show password";
+        }
+      });
+
+      passwordWrapper.appendChild(passwordInput);
+      passwordWrapper.appendChild(eyeButton);
+      passwordCell.appendChild(passwordWrapper);
 
       const actionCell = document.createElement("td");
 

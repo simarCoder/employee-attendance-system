@@ -1,7 +1,7 @@
 //
 //   salary.js
 //   Handles Salary Generation and Viewing.
-//  
+//
 
 // Initialize Date Pickers on Load
 // document.addEventListener("DOMContentLoaded", () => {
@@ -453,122 +453,213 @@ function displaySalaryCard(data) {
   const container = document.getElementById("salary-result-container");
 
   container.innerHTML = `
-    <div class="card" style="border-left: 4px solid var(--primary);">
-      <h3>Salary Slip Generated</h3>
+  <div class="card" style="border-left: 4px solid var(--primary);">
+    <h3>Salary Slip Generated</h3>
 
-      <div style="
-        margin-top: 1rem;
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 1rem;
-      ">
-        <div>
-          <label class="form-label">Employee</label>
-          <div class="value">${data.employee_name || `#${data.employee_id}`}</div>
-        </div>
+    <div style="
+      margin-top: 1rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+    ">
 
-        <div>
-          <label class="form-label">Role</label>
-          <div class="value">${data.employee_role || "-"}</div>
-        </div>
-
-        <div>
-          <label class="form-label">Month</label>
-          <div class="value">${data.month}</div>
-        </div>
-
-        <div>
-          <label class="form-label">Salary Type</label>
-          <div class="value">${data.salary_type || "-"}</div>
-        </div>
-
-        <div>
-          <label class="form-label">Total Worked</label>
-          <div class="value" style="font-size:1.25rem;font-weight:bold;">
-            ${formattedHours}
-          </div>
-        </div>
-
-        <div>
-          <label class="form-label">Working Days</label>
-          <div class="value">${data.working_days ?? "-"}</div>
-        </div>
-
-        <div>
-          <label class="form-label">Hourly Rate</label>
-          <div class="value">₹${Number(data.hourly_rate || 0).toFixed(2)}</div>
-        </div>
-
-        <div>
-          <label class="form-label">Base Salary</label>
-          <div class="value">₹${Number(data.base_salary || 0).toFixed(2)}</div>
-        </div>
-
-        <div>
-          <label class="form-label">Overtime</label>
-          <div class="value">${formatDuration(data.overtime_minutes)}</div>
-        </div>
-
-        <div>
-          <label class="form-label">Overtime Pay</label>
-          <div class="value">₹${Number(data.overtime_pay || 0).toFixed(2)}</div>
-        </div>
-
-        <div>
-          <label class="form-label">Final Salary</label>
-          <div class="value" style="font-size:1.25rem;font-weight:bold;">
-            ₹${Number(data.total_salary || 0).toFixed(2)}
-          </div>
-        </div>
-
-        <div>
-          <label class="form-label">Status</label>
-          <div class="value">${data.locked ? "Locked" : "Draft"}</div>
+      <div>
+        <label class="form-label">Employee</label>
+        <div class="value">
+          ${data.employee_name || `#${data.employee_id}`}
         </div>
       </div>
 
-      <div style="margin-top:1.25rem;">
-        <label class="form-label">Total Payout</label>
-        <div style="display:flex;align-items:center;gap:5px;">
-          <span style="font-size:1.2rem;font-weight:bold;">₹</span>
-          ${
-            !canEdit
-              ? `<input type="number" value="${data.total_salary}" disabled class="form-control" />`
-              : `<input type="number" id="editable-salary" value="${data.total_salary}" class="form-control admin-only" />`
-          }
+      <div>
+        <label class="form-label">Role</label>
+        <div class="value">
+          ${data.employee_role || "-"}
         </div>
+      </div>
+
+      <div>
+        <label class="form-label">Month</label>
+        <div class="value">
+          ${data.month}
+        </div>
+      </div>
+
+      <div>
+        <label class="form-label">Salary Type</label>
+        <div class="value">
+          ${data.salary_type || "-"}
+        </div>
+      </div>
+
+      <div>
+        <label class="form-label">Total Worked</label>
+        <div
+          class="value"
+          style="font-size:1.25rem;font-weight:bold;"
+        >
+          ${formattedHours}
+        </div>
+      </div>
+
+      <div>
+        <label class="form-label">Working Days</label>
+        <div class="value">
+          ${data.working_days ?? "-"}
+        </div>
+      </div>
+
+      <div>
+        <label class="form-label">Base Salary</label>
+        <div class="value">
+          ₹${Number(data.base_salary || 0).toFixed(2)}
+        </div>
+      </div>
+
+      <div>
+        <label class="form-label">Salary Deduction</label>
+        <div class="value">
+          ₹${Math.max(
+            0,
+            Number(data.monthly_salary || 0) - Number(data.base_salary || 0),
+          ).toFixed(2)}
+        </div>
+      </div>
+
+      <div>
+        <label class="form-label">Overtime</label>
+        <div class="value">
+          ${formatDuration(data.overtime_minutes)}
+        </div>
+      </div>
+
+      <div>
+        <label class="form-label">Overtime Pay</label>
+        <div class="value">
+          ₹${Number(data.overtime_pay || 0).toFixed(2)}
+        </div>
+      </div>
+
+      <div>
+        <label class="form-label">Final Salary</label>
+        <div
+          class="value"
+          style="font-size:1.25rem;font-weight:bold;"
+        >
+          ₹${Number(data.total_salary || 0).toFixed(2)}
+        </div>
+      </div>
+
+      <div>
+        <label class="form-label">Status</label>
+        <div class="value">
+          ${data.locked ? "Locked" : "Draft"}
+        </div>
+      </div>
+
+    </div>
+
+    <div style="margin-top:1.25rem;">
+
+      <label class="form-label">Final Payout</label>
+
+      <div style="
+        display:flex;
+        align-items:center;
+        gap:5px;
+      ">
+        <span style="
+          font-size:1.2rem;
+          font-weight:bold;
+        ">₹</span>
 
         ${
-          canEdit
+          !canEdit
             ? `
-              <button
-                onclick="saveEditedSalary(${data.employee_id}, '${data.month}')"
-                class="btn btn-primary admin-only"
-                style="margin-top:10px;width:100%;"
-              >
-                Save Changes
-              </button>
-              ${
-                data.locked && isHead
-                  ? '<small style="color:#f59e0b;display:block;margin-top:5px;">* Unlocked via Head Developer access</small>'
-                  : ""
-              }
+              <input
+                type="number"
+                value="${data.total_salary}"
+                disabled
+                class="form-control"
+              />
             `
-            : '<small style="color:var(--text-muted);display:block;margin-top:5px;">* Locked</small>'
+            : `
+              <input
+                type="number"
+                id="editable-salary"
+                value="${data.total_salary}"
+                class="form-control admin-only"
+              />
+            `
         }
       </div>
 
-      <div class="salary-result-actions">
-        <button
-          type="button"
-          class="btn"
-          onclick="viewSalaryReceipt(${data.employee_id}, '${data.month}')"
-        >
-          Generate Receipt / Print
-        </button>
-      </div>
+      ${
+        canEdit
+          ? `
+            <button
+              onclick="saveEditedSalary(
+                ${data.employee_id},
+                '${data.month}'
+              )"
+              class="btn btn-primary admin-only"
+              style="
+                margin-top:10px;
+                width:100%;
+              "
+            >
+              Save Changes
+            </button>
+
+            ${
+              data.locked && isHead
+                ? `
+                  <small
+                    style="
+                      color:#f59e0b;
+                      display:block;
+                      margin-top:5px;
+                    "
+                  >
+                    * Unlocked via Head Developer access
+                  </small>
+                `
+                : ""
+            }
+          `
+          : `
+            <small
+              style="
+                color:var(--text-muted);
+                display:block;
+                margin-top:5px;
+              "
+            >
+              * Locked
+            </small>
+          `
+      }
+
     </div>
-  `;
+
+    <div class="salary-result-actions">
+
+      <button
+        type="button"
+        class="btn"
+        onclick="
+          viewSalaryReceipt(
+            ${data.employee_id},
+            '${data.month}'
+          )
+        "
+      >
+        Generate Receipt / Print
+      </button>
+
+    </div>
+
+  </div>
+`;
 
   loadSalaryRecords();
 }
@@ -591,218 +682,216 @@ function renderSalaryRecords(records) {
   const rows = records
     .map(
       (record) => `
-        <!-- Main salary row -->
-        <tr>
-          <td>#${record.employee_id}</td>
-          <td>${record.employee_name || "-"}</td>
-          <td>${record.month}</td>
-          <td>${record.salary_type || "-"}</td>
-          <td>${formatDuration(record.actual_worked_minutes)}</td>
-          <td>₹${Number(record.monthly_salary || 0).toFixed(2)}</td>
-          <td>₹${Number(record.hourly_rate || 0).toFixed(2)}</td>
-          <td>₹${Number(record.total_salary || 0).toFixed(2)}</td>
-          <td>${record.locked ? "Locked" : "Draft"}</td>
+      <!-- Main salary row -->
+      <tr>
 
-          <td>
-            <button
-              class="btn salary-details-btn"
-              style="
-                background:var(--bg-input);
-                color:var(--text-main);
-                min-width:100px;
-              "
-              onclick="showSalaryRecordDetails(${record.salary_id})"
-            >
-              Details
-            </button>
-          </td>
-        </tr>
+        <td>
+          #${record.employee_id}
+        </td>
 
-        <!-- Expandable details row -->
-        <tr class="salary-detail-row">
-          <td
-            colspan="10"
+        <td>
+          ${record.employee_name || "-"}
+        </td>
+
+        <td>
+          ${record.month}
+        </td>
+
+        <td>
+          ${record.salary_type || "-"}
+        </td>
+
+        <td>
+          ${formatDuration(record.actual_worked_minutes)}
+        </td>
+
+        <td>
+          ₹${Number(record.monthly_salary || 0).toFixed(2)}
+        </td>
+
+        <td>
+          ₹${Number(record.total_salary || 0).toFixed(2)}
+        </td>
+
+        <td>
+          ${record.locked ? "Locked" : "Draft"}
+        </td>
+
+        <td>
+          <button
+            class="btn salary-details-btn"
             style="
-              padding:0;
-              border:0;
-              width:100%;
+              background:var(--bg-input);
+              color:var(--text-main);
+              min-width:100px;
+            "
+            onclick="
+              showSalaryRecordDetails(
+                ${record.salary_id}
+              )
             "
           >
+            Details
+          </button>
+        </td>
+
+      </tr>
+
+      <!-- Expandable details row -->
+      <tr class="salary-detail-row">
+
+        <td
+          colspan="9"
+          style="
+            padding:0;
+            border:0;
+            width:100%;
+          "
+        >
+
           <div
-              id="salary-detail-${record.salary_id}"
-              class="salary-detail-inner"
+            id="salary-detail-${record.salary_id}"
+            class="salary-detail-inner"
+            style="
+              width:100%;
+              max-width:100%;
+              box-sizing:border-box;
+              max-height:0;
+              opacity:0;
+              overflow:hidden;
+              transition:
+                max-height 0.35s ease,
+                opacity 0.25s ease,
+                padding 0.35s ease;
+              padding:0 1rem;
+            "
+          >
+
+            <div
               style="
                 width:100%;
-                max-width:100%;
                 box-sizing:border-box;
-                max-height:0;
-                opacity:0;
-                overflow:hidden;
-                transition:
-                  max-height 0.35s ease,
-                  opacity 0.25s ease,
-                  padding 0.35s ease;
-                padding:0 1rem;
+                border:1px solid var(--border);
+                border-radius:12px;
+                padding:1.25rem;
+                background:var(--bg-input);
+                margin:0.5rem 0 1rem 0;
               "
             >
-             <div
+
+              <h4 style="margin-bottom:1rem;">
+                Salary Record Details
+              </h4>
+
+              <div
+                class="salary-detail-grid"
                 style="
-                  width:100%;
-                  box-sizing:border-box;
-                  border:1px solid var(--border);
-                  border-radius:12px;
-                  padding:1.25rem;
-                  background:var(--bg-input);
-                  margin:0.5rem 0 1rem 0;
+                  display:grid;
+                  grid-template-columns:
+                    repeat(auto-fit,minmax(220px,1fr));
+                  gap:.8rem 1.5rem;
                 "
               >
-                <h4 style="margin-bottom:1rem;">
-                  Salary Record Details
-                </h4>
 
-               <div
-                //   style="
-                //     display:grid;
-                //     grid-template-columns:repeat(
-                //       auto-fit,
-                //       minmax(220px,1fr)
-                //       gap:.8rem 1.5rem;
-                //     );
-                //   "
-                >
-                <div
-                    class="salary-detail-grid"
-                  >
-                  <div>
-                    <strong>Salary ID:</strong>
-                    #${record.salary_id}
-                  </div>
-
-                  <div>
-                    <strong>Employee ID:</strong>
-                    #${record.employee_id}
-                  </div>
-
-                  <div>
-                    <strong>Employee:</strong>
-                    ${record.employee_name || "-"}
-                  </div>
-
-                  <div>
-                    <strong>Role:</strong>
-                    ${record.employee_role || "-"}
-                  </div>
-
-                  <div>
-                    <strong>Month:</strong>
-                    ${record.month}
-                  </div>
-
-                  <div>
-                    <strong>Salary Type:</strong>
-                    ${record.salary_type || "-"}
-                  </div>
-
-                  <div>
-                    <strong>Monthly Salary:</strong>
-                    ₹${Number(record.monthly_salary || 0).toFixed(2)}
-                  </div>
-
-                  <div>
-                    <strong>Daily Hours:</strong>
-                    ${Number(record.daily_hours || 0).toFixed(2)}h
-                  </div>
-
-                  <div>
-                    <strong>Working Days:</strong>
-                    ${record.working_days ?? "-"}
-                  </div>
-
-                  <div>
-                    <strong>Grace Holidays:</strong>
-                    ${Number(record.grace_holidays || 0).toFixed(2)}
-                  </div>
-
-                  <div>
-                    <strong>Holiday Units:</strong>
-                    ${Number(record.absence_days || 0).toFixed(2)}
-                  </div>
-
-                  <div>
-                    <strong>Grace Used:</strong>
-                    ${Number(record.grace_holidays_used || 0).toFixed(2)}
-                  </div>
-
-                  <div>
-                    <strong>Deducted Holidays:</strong>
-                    ${Number(record.deducted_holidays || 0).toFixed(2)}
-                  </div>
-
-                  <div>
-                    <strong>Paid Minutes:</strong>
-                    ${record.paid_minutes ?? "-"}
-                  </div>
-
-                  <div>
-                    <strong>Expected Minutes:</strong>
-                    ${record.expected_monthly_minutes ?? "-"}
-                  </div>
-
-                  <div>
-                    <strong>Actual Minutes:</strong>
-                    ${record.actual_worked_minutes ?? "-"}
-                  </div>
-
-                  <div>
-                    <strong>Actual Worked:</strong>
-                    ${formatDuration(record.actual_worked_minutes)}
-                  </div>
-
-                  <div>
-                    <strong>Overtime:</strong>
-                    ${formatDuration(record.overtime_minutes)}
-                  </div>
-
-                  <div>
-                    <strong>Hourly Rate:</strong>
-                    ₹${Number(record.hourly_rate || 0).toFixed(2)}
-                  </div>
-
-                  <div>
-                    <strong>Base Salary:</strong>
-                    ₹${Number(record.base_salary || 0).toFixed(2)}
-                  </div>
-
-                  <div>
-                    <strong>Overtime Pay:</strong>
-                    ₹${Number(record.overtime_pay || 0).toFixed(2)}
-                  </div>
-
-                  <div>
-                    <strong>Total Salary:</strong>
-                    ₹${Number(record.total_salary || 0).toFixed(2)}
-                  </div>
-
-                  <div>
-                    <strong>Status:</strong>
-                    ${record.locked ? "Locked" : "Draft"}
-                  </div>
-
-                  <div>
-                    <strong>Created:</strong>
-                    ${record.created_at || "-"}
-                  </div>
-
-                  <div>
-                    <strong>Updated:</strong>
-                    ${record.updated_at || "-"}
-                  </div>
+                <div>
+                  <strong>Salary ID:</strong>
+                  #${record.salary_id}
                 </div>
+
+                <div>
+                  <strong>Employee ID:</strong>
+                  #${record.employee_id}
+                </div>
+
+                <div>
+                  <strong>Employee:</strong>
+                  ${record.employee_name || "-"}
+                </div>
+
+                <div>
+                  <strong>Role:</strong>
+                  ${record.employee_role || "-"}
+                </div>
+
+                <div>
+                  <strong>Month:</strong>
+                  ${record.month}
+                </div>
+
+                <div>
+                  <strong>Salary Type:</strong>
+                  ${record.salary_type || "-"}
+                </div>
+
+                <div>
+                  <strong>Monthly Salary:</strong>
+                  ₹${Number(record.monthly_salary || 0).toFixed(2)}
+                </div>
+
+                <div>
+                  <strong>Working Days:</strong>
+                  ${record.working_days ?? "-"}
+                </div>
+
+                <div>
+                  <strong>Total Worked:</strong>
+                  ${formatDuration(record.actual_worked_minutes)}
+                </div>
+
+                <div>
+                  <strong>Base Salary:</strong>
+                  ₹${Number(record.base_salary || 0).toFixed(2)}
+                </div>
+
+                <div>
+                  <strong>Salary Deduction:</strong>
+                  ₹${Math.max(
+                    0,
+                    Number(record.monthly_salary || 0) -
+                      Number(record.base_salary || 0),
+                  ).toFixed(2)}
+                </div>
+
+                <div>
+                  <strong>Overtime:</strong>
+                  ${formatDuration(record.overtime_minutes)}
+                </div>
+
+                <div>
+                  <strong>Overtime Pay:</strong>
+                  ₹${Number(record.overtime_pay || 0).toFixed(2)}
+                </div>
+
+                <div>
+                  <strong>Final Salary:</strong>
+                  ₹${Number(record.total_salary || 0).toFixed(2)}
+                </div>
+
+                <div>
+                  <strong>Status:</strong>
+                  ${record.locked ? "Locked" : "Draft"}
+                </div>
+
+                <div>
+                  <strong>Created:</strong>
+                  ${record.created_at || "-"}
+                </div>
+
+                <div>
+                  <strong>Updated:</strong>
+                  ${record.updated_at || "-"}
+                </div>
+
               </div>
+
             </div>
-          </td>
-        </tr>
-      `,
+
+          </div>
+
+        </td>
+
+      </tr>
+    `,
     )
     .join("");
 
@@ -846,7 +935,6 @@ function renderSalaryRecords(records) {
               <th>Type</th>
               <th>Worked</th>
               <th>Monthly Salary</th>
-              <th>Hourly Rate</th>
               <th>Total Salary</th>
               <th>Status</th>
               <th>Action</th>
@@ -952,7 +1040,9 @@ function saveEditedSalary(empId, month) {
 async function viewSalaryReceipt(employeeId, month) {
   try {
     const [salaryRes, employeeRes] = await Promise.all([
-      fetch(`${API_BASE}/salary/view?employee_id=${employeeId}&month=${encodeURIComponent(month)}`),
+      fetch(
+        `${API_BASE}/salary/view?employee_id=${employeeId}&month=${encodeURIComponent(month)}`,
+      ),
       fetch(`${API_BASE}/employee/${employeeId}`),
     ]);
 
@@ -960,14 +1050,16 @@ async function viewSalaryReceipt(employeeId, month) {
       const data = await salaryRes.json().catch(() => ({}));
       throw new Error(data.error || "Salary record not found");
     }
-    if (!employeeRes.ok) throw new Error("Employee details could not be loaded");
+    if (!employeeRes.ok)
+      throw new Error("Employee details could not be loaded");
 
     const salary = await salaryRes.json();
     const employee = await employeeRes.json();
     renderSalaryReceipt(salary, employee);
   } catch (error) {
     console.error("Receipt error:", error);
-    if (window.showToast) showToast(error.message || "Unable to generate receipt", "error");
+    if (window.showToast)
+      showToast(error.message || "Unable to generate receipt", "error");
   }
 }
 
@@ -975,19 +1067,26 @@ function renderSalaryReceipt(salary, employee = {}) {
   const target = document.getElementById("salary-receipt-print-area");
   if (!target) return;
 
-  const money = (value) => `₹${Number(value || 0).toLocaleString("en-IN", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+  const money = (value) =>
+    `₹${Number(value || 0).toLocaleString("en-IN", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
   const formatMonth = (value) => {
     if (!value || !value.includes("-")) return value || "-";
     const [year, month] = value.split("-");
-    return new Date(Number(year), Number(month) - 1, 1).toLocaleDateString("en-IN", {
-      month: "long",
-      year: "numeric",
-    });
+    return new Date(Number(year), Number(month) - 1, 1).toLocaleDateString(
+      "en-IN",
+      {
+        month: "long",
+        year: "numeric",
+      },
+    );
   };
-  const deductions = Math.max(0, Number(salary.base_salary || 0) - Number(salary.total_salary || 0));
+  const deductions = Math.max(
+    0,
+    Number(salary.base_salary || 0) - Number(salary.total_salary || 0),
+  );
   const generatedAt = new Date().toLocaleString("en-IN", {
     dateStyle: "medium",
     timeStyle: "short",
@@ -1048,7 +1147,11 @@ function renderSalaryReceipt(salary, employee = {}) {
 
   document.body.classList.add("printing-receipt");
   window.setTimeout(() => window.print(), 100);
-  window.addEventListener("afterprint", () => {
-    document.body.classList.remove("printing-receipt");
-  }, { once: true });
+  window.addEventListener(
+    "afterprint",
+    () => {
+      document.body.classList.remove("printing-receipt");
+    },
+    { once: true },
+  );
 }

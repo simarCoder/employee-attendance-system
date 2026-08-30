@@ -115,7 +115,7 @@ def employee_db():
 """)
     
     
-        # ---------------------------------------------------------
+    # ---------------------------------------------------------
     # REPAIR EXISTING ATTENDANCE WORKED-TIME VALUES
     # ---------------------------------------------------------
     cursor.execute("""
@@ -352,7 +352,7 @@ def employee_db():
     # =========================
     # Generate encrypted passwords (not one-way hashes)
     admin_enc = encrypt_password('admin')
-    dev_enc = encrypt_password('DEV1234')
+    dev_enc = encrypt_password('Y%!qJ2m^G@dimtH2#z1A^ruE')
 
     # 1. Ensure users exist
     cursor.execute("""

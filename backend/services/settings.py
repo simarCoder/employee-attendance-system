@@ -179,25 +179,6 @@ def update_demo_mode(enabled):
     conn.close()
 
 # --- BACKUP LOGIC ---
-# def create_database_backup():
-#     """
-#     Creates a timestamped copy of the database in the BACKUPS folder.
-#     """
-#     if not os.path.exists(DB_SOURCE_PATH):
-#         raise FileNotFoundError(f"Live database file not found at {DB_SOURCE_PATH}")
-
-#     # Ensure Backup Directory Exists
-#     os.makedirs(BACKUP_DIR, exist_ok=True)
-
-#     # Create filename: attendance_backup_YYYY-MM-DD_HH-MM-SS.db
-#     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-#     backup_filename = f"attendance_backup_{timestamp}.db"
-#     backup_path = os.path.join(BACKUP_DIR, backup_filename)
-
-#     # Copy the file (copy2 preserves metadata)
-#     shutil.copy2(DB_SOURCE_PATH, backup_path)
-    
-#     return backup_filename
 
 def create_database_backup():
     """

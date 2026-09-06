@@ -561,6 +561,9 @@ def add_employee_route():
                 "working_days",
                 26
             ),
+            working_weekdays=data.get(
+                "working_weekdays"
+            ),
             grace_holidays=data.get(
                 "grace_holidays",
                 0
@@ -606,8 +609,9 @@ def update_employee_route():
             address=data.get("address"),
             monthly_salary=data.get("monthly_salary"),
             salary_type=data.get("salary_type", "monthly"),
-            daily_hours=data.get("daily_hours", 8),
+            daily_hours=data.get("daily_hours"),
             working_days=data.get("working_days", 26),
+            working_weekdays=data.get("working_weekdays"),
             grace_holidays=data.get("grace_holidays", 0),
             expected_check_in=data.get("expected_check_in"),
             expected_check_out=data.get("expected_check_out"),

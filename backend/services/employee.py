@@ -1,6 +1,55 @@
 from backend.database import get_connection
 
 
+DEFAULT_WORKING_WEEKDAYS = "0,1,2,3,4,5"
+
+
+def normalize_working_weekdays(value):
+    """
+    Convert employee weekly schedule into normalized DB text.
+
+    Accepted examples:
+        [0, 1, 2, 3, 4, 5]
+        "0,1,2,3,4,5"
+
+    Returns:
+        "0,1,2,3,4,5"
+    """
+
+    if value is None:
+        return DEFAULT_WORKING_WEEKDAYS
+
+    if isinstance(value, str):
+        raw_values = [
+            item.strip()
+            for item in value.split(",")
+            if item.strip()
+        ]
+    else:
+        raw_values = list(value)
+
+    try:
+        weekdays = sorted({
+            int(day)
+            for day in raw_values
+        })
+    except (TypeError, ValueError):
+        raise ValueError("Invalid working weekday selection")
+
+    if not weekdays:
+        raise ValueError("Select at least one working weekday")
+
+    if any(day < 0 or day > 6 for day in weekdays):
+        raise ValueError(
+            "Working weekdays must be between Monday (0) and Sunday (6)"
+        )
+
+    return ",".join(
+        str(day)
+        for day in weekdays
+    )
+
+
 def calculate_hourly_rate(
     monthly_salary,
     daily_hours,
@@ -124,8 +173,9 @@ def add_employee(
     late_grace_minutes=0,
     overtime_enabled=0,
     overtime_rate=1.5,
-    working_days=26,
+    working_days=26,  # legacy, kept temporarily for route compatibility
     grace_holidays=0,
+    working_weekdays=None,
 ):
     if not name:
         raise ValueError("Name is required")
@@ -134,12 +184,16 @@ def add_employee(
         raise ValueError("Salary is required")
 
     monthly_salary = float(monthly_salary)
+
     daily_hours = float(daily_hours or 8)
     late_grace_minutes = int(late_grace_minutes or 0)
     overtime_enabled = int(bool(overtime_enabled))
     overtime_rate = float(overtime_rate or 1.5)
     working_days = float(working_days or 26)
     grace_holidays = float(grace_holidays or 0)
+    working_weekdays = normalize_working_weekdays(
+                                                    working_weekdays
+                                                )
 
     if salary_type not in ("monthly", "hourly"):
         raise ValueError("Invalid salary type")
@@ -172,41 +226,43 @@ def add_employee(
     cursor = conn.cursor()
 
     cursor.execute("""
-        INSERT INTO employees (
-            name,
-            role,
-            phone,
-            address,
-            monthly_salary,
-            hourly_rate,
-            salary_type,
-            daily_hours,
-            expected_check_in,
-            expected_check_out,
-            late_grace_minutes,
-            overtime_enabled,
-            overtime_rate,
-            working_days,
-            grace_holidays
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (
-        name,
-        role,
-        phone,
-        address,
-        monthly_salary,
-        hourly_rate,
-        salary_type,
-        daily_hours,
-        expected_check_in,
-        expected_check_out,
-        late_grace_minutes,
-        overtime_enabled,
-        overtime_rate,
-        working_days,
-        grace_holidays
-    ))
+                    INSERT INTO employees (
+                        name,
+                        role,
+                        phone,
+                        address,
+                        monthly_salary,
+                        hourly_rate,
+                        salary_type,
+                        daily_hours,
+                        expected_check_in,
+                        expected_check_out,
+                        late_grace_minutes,
+                        overtime_enabled,
+                        overtime_rate,
+                        working_days,
+                        working_weekdays,
+                        grace_holidays
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    name,
+                    role,
+                    phone,
+                    address,
+                    monthly_salary,
+                    hourly_rate,
+                    salary_type,
+                    daily_hours,
+                    expected_check_in,
+                    expected_check_out,
+                    late_grace_minutes,
+                    overtime_enabled,
+                    overtime_rate,
+                    working_days,
+                    working_weekdays,
+                    grace_holidays
+                ))
 
     conn.commit()
 
@@ -343,7 +399,7 @@ def update_employee(
     address,
     monthly_salary,
     salary_type="monthly",
-    daily_hours=8,
+    daily_hours=None,
     expected_check_in=None,
     working_days=26,
     expected_check_out=None,
@@ -351,6 +407,7 @@ def update_employee(
     overtime_enabled=0,
     overtime_rate=1,
     grace_holidays=0,
+    working_weekdays=None,
 ):
     if not name:
         raise ValueError("Name is required")
@@ -359,12 +416,34 @@ def update_employee(
         raise ValueError("Salary is required")
 
     monthly_salary = float(monthly_salary)
-    daily_hours = float(daily_hours or 8)
+
+    # Preserve the existing value if an older caller omits daily_hours.
+    # Updates must never silently overwrite it with 8.
+    if daily_hours is None or daily_hours == "":
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT daily_hours FROM employees WHERE employee_id = ?",
+            (employee_id,),
+        )
+        existing_employee = cursor.fetchone()
+        cursor.close()
+        conn.close()
+
+        if not existing_employee:
+            raise ValueError("Employee not found")
+
+        daily_hours = existing_employee[0]
+
+    daily_hours = float(daily_hours)
     late_grace_minutes = int(late_grace_minutes or 0)
     overtime_enabled = int(bool(overtime_enabled))
     overtime_rate = float(overtime_rate or 1)
     working_days = float(working_days or 26)
     grace_holidays = float(grace_holidays or 0)
+    working_weekdays = normalize_working_weekdays(
+        working_weekdays
+    )
 
     if working_days <= 0 or working_days > 31:
         raise ValueError("Working days must be between 1 and 31")
@@ -408,6 +487,7 @@ def update_employee(
             salary_type = ?,
             daily_hours = ?,
             working_days = ?,
+            working_weekdays = ?,
             grace_holidays = ?,
             expected_check_in = ?,
             expected_check_out = ?,
@@ -425,6 +505,7 @@ def update_employee(
         salary_type,
         daily_hours,
         working_days,
+        working_weekdays,
         grace_holidays,
         expected_check_in,
         expected_check_out,

@@ -288,32 +288,61 @@
       <main class="main-content">
         <!-- 1. OVERVIEW -->
         <section id="overview" class="section active">
-          <div class="content-header">
+          <div class="content-header dashboard-page-header">
             <div>
               <h2>Overview</h2>
-              <p>Welcome back, <span id="user-role-display">User</span>.</p>
             </div>
           </div>
           <!-- Stats -->
-          <div class="stats-grid">
-            <div class="card stat-card">
+          <!-- DASHBOARD SUMMARY -->
+          <div class="dashboard-summary-grid">
+            <!-- Total Employees -->
+            <div class="card stat-card dashboard-summary-card">
               <h3>Total Employees</h3>
               <div class="value" id="stat-total-emp">-</div>
             </div>
-            <div class="card stat-card">
+
+            <!-- Today's Date -->
+            <div class="card stat-card dashboard-summary-card">
               <h3>Today's Date</h3>
-              <div class="value" style="font-size: 1.25rem" id="stat-date">
+              <div class="value" style="font-size: 1.05rem" id="stat-date">
                 Loading...
               </div>
             </div>
-            <div class="card stat-card">
+
+            <!-- System Status -->
+            <div class="card stat-card dashboard-summary-card">
               <h3>System Status</h3>
               <div
                 class="value"
-                style="color: var(--success); font-size: 1.25rem"
+                style="color: var(--success); font-size: 1.05rem"
               >
                 Online
               </div>
+            </div>
+
+            <!-- Present -->
+            <div class="card stat-card dashboard-summary-card">
+              <h3>Present</h3>
+              <div class="value" id="attendance-present-count">-</div>
+            </div>
+
+            <!-- Incomplete -->
+            <div class="card stat-card dashboard-summary-card">
+              <h3>Incomplete</h3>
+              <div class="value" id="attendance-incomplete-count">-</div>
+            </div>
+
+            <!-- Absent -->
+            <div class="card stat-card dashboard-summary-card">
+              <h3>Absent</h3>
+              <div class="value" id="attendance-absent-count">-</div>
+            </div>
+
+            <!-- Scheduled Days -->
+            <div class="card stat-card dashboard-summary-card">
+              <h3>Scheduled Days</h3>
+              <div class="value" id="attendance-scheduled-count">-</div>
             </div>
           </div>
           <div
@@ -351,6 +380,8 @@
                 <option value="month">Month</option>
                 <option value="year">Year</option>
               </select>
+
+              <button type="button" id="dashboard-attendance-previous" class="btn dashboard-period-btn" aria-label="Previous period">←</button>
 
               <!-- DAY -->
               <div
@@ -400,33 +431,49 @@
                   class="form-control"
                 ></select>
               </div>
+              <button
+                type="button"
+                id="dashboard-attendance-reload"
+                class="btn btn-primary dashboard-reload-btn"
+              >
+                <span class="reload-icon">↻</span>
+                <span class="reload-text">Reload</span>
+              </button>
+              <button type="button" id="dashboard-attendance-next" class="btn dashboard-period-btn" aria-label="Next period">→</button>
             </div>
           </div>
-          <table class="table" style="margin-top: 1rem">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>ID</th>
-                <th>Name</th>
-                <th>Role</th>
-                <th>Check In</th>
-                <th>Check Out</th>
-                <th>Worked Hours</th>
-                <th>Status</th>
-              </tr>
-            </thead>
 
-            <tbody id="dashboard-attendance-body">
-              <tr>
-                <td
-                  colspan="8"
-                  style="text-align: center; color: var(--text-muted)"
-                >
-                  Loading attendance...
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <div
+            class="table-container dashboard-attendance-table-container"
+            style="margin-top: 1rem"
+          >
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>ID</th>
+                  <th>Name</th>
+                  <th>Role</th>
+                  <th>Check In</th>
+                  <th>Check Out</th>
+                  <th>Worked Hours</th>
+                  <th>Overtime</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+
+              <tbody id="dashboard-attendance-body">
+                <tr>
+                  <td
+                    colspan="9"
+                    style="text-align: center; color: var(--text-muted)"
+                  >
+                    Loading attendance...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </section>
 
         <!-- 2. EMPLOYEES -->
@@ -438,57 +485,21 @@
 
           <div class="section-stack">
             <!-- Add Form (Top) -->
-            <div class="card">
-              <h3>Add New Employee</h3>
-              <form
-                id="add-employee-form"
-                onsubmit="addEmployee(event)"
-                style="margin-top: 0.5rem"
-              >
-                <div
-                  style="
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 0.75rem;
-                  "
-                >
-                  <input
-                    type="text"
-                    id="emp-name"
-                    class="form-control minimal-input"
-                    placeholder="Full Name"
-                    required
-                  />
-                  <input
-                    type="text"
-                    id="emp-role"
-                    class="form-control minimal-input"
-                    placeholder="Role / Designation"
-                    required
-                  />
-                  <input
-                    type="text"
-                    id="emp-contact"
-                    class="form-control minimal-input"
-                    placeholder="Phone Number"
-                    required
-                  />
-                  <input
-                    type="text"
-                    id="emp-address"
-                    class="form-control minimal-input"
-                    placeholder="Address"
-                    required
-                  />
+            <div class="card employee-entry-card">
+              <div class="employee-entry-heading">
+                <div>
+                  <h3>Add New Employee</h3>
                 </div>
-                <div
-                  style="
-                    margin-top: 0.75rem;
-                    display: grid;
-                    grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
-                    gap: 0.75rem;
-                  "
-                >
+              </div>
+              <form id="add-employee-form" onsubmit="addEmployee(event)" class="employee-entry-form">
+                <div class="employee-form-grid employee-form-grid--two employee-form-grid--identity">
+                  <input type="text" id="emp-name" class="form-control minimal-input" placeholder="Full Name" required />
+                  <input type="text" id="emp-role" class="form-control minimal-input" placeholder="Role / Designation" required />
+                  <input type="text" id="emp-contact" class="form-control minimal-input" placeholder="Phone Number" required />
+                  <input type="text" id="emp-address" class="form-control minimal-input" placeholder="Address" required />
+                </div>
+
+                <div class="employee-form-grid employee-form-grid--four employee-form-grid--details">
                   <select
                     id="emp-salary-type"
                     class="form-control minimal-input"
@@ -508,27 +519,9 @@
                     required
                   />
 
-                  <input
-                    type="number"
-                    id="emp-daily-hours"
-                    class="form-control minimal-input"
-                    placeholder="Daily Hours"
-                    min="1"
-                    max="24"
-                    step="1"
-                    required
-                  />
-                  <input
-                    type="number"
-                    id="emp-working-days"
-                    class="form-control minimal-input"
-                    placeholder="Working Days / Month"
-                    min="1"
-                    max="31"
-                    step="1"
-                    required
-                  />
-
+                  <input type="text" id="emp-daily-hours-display" class="form-control minimal-input employee-hours-display" placeholder="Daily Hours" readonly aria-label="Calculated daily hours" />
+                  <input type="hidden" id="emp-daily-hours" />
+                  <input type="hidden" id="emp-working-days" />
                   <input
                     type="number"
                     id="emp-grace-holidays"
@@ -540,93 +533,14 @@
                   />
                 </div>
 
-                <div
-                  style="
-                    margin-top: 0.75rem;
-                    display: grid;
-                    grid-template-columns: 1fr 1fr 1fr;
-                    gap: 0.75rem;
-                  "
-                >
-                  <div>
-                    <label class="form-label" for="emp-check-in">
-                      Expected Check-In
-                    </label>
+                <div class="employee-week-field"><span>Working Week</span><div id="emp-working-weekdays" class="employee-week-days"><label><input type="checkbox" value="0" checked /> Mon</label><label><input type="checkbox" value="1" checked /> Tue</label><label><input type="checkbox" value="2" checked /> Wed</label><label><input type="checkbox" value="3" checked /> Thu</label><label><input type="checkbox" value="4" checked /> Fri</label><label><input type="checkbox" value="5" checked /> Sat</label><label><input type="checkbox" value="6" /> Sun</label><div class="employee-working-days"><button type="button" id="emp-working-days-previous" aria-label="Previous month">←</button><span id="emp-working-days-label"></span><strong id="emp-working-days-count"></strong><button type="button" id="emp-working-days-next" aria-label="Next month">→</button></div></div></div>
 
-                    <input
-                      type="time"
-                      id="emp-check-in"
-                      class="form-control minimal-input"
-                    />
-                  </div>
-
-                  <div>
-                    <label class="form-label" for="emp-check-out">
-                      Expected Check-Out
-                    </label>
-
-                    <input
-                      type="time"
-                      id="emp-check-out"
-                      class="form-control minimal-input"
-                    />
-                  </div>
-
-                  <div>
-                    <label class="form-label" for="emp-late-grace">
-                      Late Grace (minutes)
-                    </label>
-
-                    <input
-                      type="number"
-                      id="emp-late-grace"
-                      class="form-control minimal-input"
-                      min="0"
-                      step="1"
-                      value="0"
-                    />
-                  </div>
+                <div class="employee-form-grid employee-form-grid--three employee-form-grid--rules">
+                  <label class="employee-field"><span>Expected Check-In</span><input type="time" id="emp-check-in" class="form-control minimal-input" required /></label>
+                  <label class="employee-field"><span>Expected Check-Out</span><input type="time" id="emp-check-out" class="form-control minimal-input" required /></label>
+                  <label class="employee-field"><span>Late Grace (minutes)</span><input type="number" id="emp-late-grace" class="form-control minimal-input" min="0" step="1" value="0" /></label>
                 </div>
-
-                <div
-                  style="
-                    margin-top: 0.75rem;
-                    display: flex;
-                    align-items: center;
-                    gap: 1rem;
-                    flex-wrap: wrap;
-                  "
-                >
-                  <label
-                    style="display: flex; align-items: center; gap: 0.5rem"
-                  >
-                    <input type="checkbox" id="emp-overtime-enabled" />
-                    Enable Overtime
-                  </label>
-
-                  <input
-                    type="number"
-                    id="emp-overtime-rate"
-                    class="form-control minimal-input"
-                    placeholder="OT Multiplier"
-                    min="0.1"
-                    step="0.1"
-                    value="1.5"
-                    style="max-width: 180px"
-                  />
-
-                  <button
-                    type="submit"
-                    class="btn btn-primary"
-                    style="
-                      min-width: 120px;
-                      padding: 0.5rem 1rem;
-                      margin-left: auto;
-                    "
-                  >
-                    Add
-                  </button>
-                </div>
+                <div class="employee-form-actions"><label class="employee-toggle"><input type="checkbox" id="emp-overtime-enabled" /><span>Enable Overtime</span></label><input type="number" id="emp-overtime-rate" class="form-control minimal-input employee-rate-input" placeholder="OT Multiplier" min="0.1" step="0.1" value="1.5" /><button type="submit" class="btn btn-primary">Add</button></div>
               </form>
             </div>
 
@@ -634,13 +548,13 @@
             <div class="employee-directory-table">
               <table class="table employee-directory">
                 <thead>
-                  <tr class="directory-group-header">
+                  <!-- <tr class="directory-group-header">
                     <th colspan="2">Identity</th>
                     <th colspan="2">Contact</th>
                     <th>Compensation</th>
                     <th>Status</th>
                     <th>Actions</th>
-                  </tr>
+                  </tr> -->
 
                   <tr class="directory-column-header">
                     <th>ID</th>
@@ -1515,7 +1429,7 @@
     <script src="{{ url_for('static', filename='js/employee_profile.js') }}"></script>
     <script src="{{ url_for('static', filename='js/settings.js') }}"></script>
     <script src="{{ url_for('static', filename='js/bulk_attendance.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/dashboard_attendance.js') }}?v=3"></script>
+    <script src="{{ url_for('static', filename='js/dashboard_attendance.js') }}?v=4"></script>
     <script src="{{ url_for('static', filename='js/biometric.js') }}"></script>
     <!-- New Script -->
 
@@ -1646,10 +1560,12 @@
         };
 
         const role = sessionStorage.getItem("role");
-        document.getElementById("user-role-display").innerText = role
-          ? role.toUpperCase()
-          : "USER";
 
+        const roleDisplay = document.getElementById("user-role-display");
+
+        if (roleDisplay) {
+          roleDisplay.innerText = role ? role.toUpperCase() : "USER";
+        }
         if (role === "admin" || role === "head") {
           document
             .querySelectorAll(".special-access-only")

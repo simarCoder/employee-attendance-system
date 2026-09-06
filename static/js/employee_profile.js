@@ -29,6 +29,7 @@ function openEmployeeProfile(employeeId, event) {
 
   document.getElementById("profile-list-view").style.display = "none";
   document.getElementById("profile-detail-view").style.display = "block";
+  scrollEmployeeProfileToTop();
 
   const content = document.getElementById("profile-content-area");
   content.innerHTML = `
@@ -41,6 +42,12 @@ function openEmployeeProfile(employeeId, event) {
   loadEmployeeDocuments(employeeId);
   loadEmployeeAttendance(employeeId);
   loadEmployeeSalaryHistory(employeeId);
+}
+
+function scrollEmployeeProfileToTop() {
+  const mainContent = document.querySelector(".main-content");
+  if (mainContent) mainContent.scrollTo({ top: 0, behavior: "instant" });
+  window.scrollTo({ top: 0, behavior: "instant" });
 }
 
 /* =========================
@@ -63,6 +70,10 @@ function loadEmployeeProfile(employeeId) {
         })}`;
       const yesNo = (value) => (Number(value) ? "Enabled" : "Disabled");
       const time = (value) => value || "Not configured";
+      const hoursAndMinutes = (value) => {
+        const totalMinutes = Math.round(Number(value || 0) * 60);
+        return `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`;
+      };
 
       content.innerHTML = `
         <div class="employee-profile-header">
@@ -74,54 +85,45 @@ function loadEmployeeProfile(employeeId) {
           <span class="employee-profile-status ${emp.status === "active" ? "active" : "inactive"}">${emp.status || "unknown"}</span>
         </div>
 
-        <div class="employee-profile-grid">
-          <section class="profile-info-panel">
-            <div class="profile-panel-title">Personal & Contact</div>
+        <div class="profile-compact-grid">
+          <div class="profile-compact-group">
+            <div class="profile-panel-title">Employee</div>
             <div class="profile-field-grid">
               <div class="profile-field"><span>Employee ID</span><strong>#${emp.id}</strong></div>
-              <div class="profile-field"><span>Full Name</span><strong>${emp.name || "-"}</strong></div>
               <div class="profile-field"><span>Phone</span><strong>${emp.phone || "-"}</strong></div>
               <div class="profile-field profile-field-wide"><span>Address</span><strong>${emp.address || "-"}</strong></div>
             </div>
-          </section>
+          </div>
 
-          <section class="profile-info-panel">
-            <div class="profile-panel-title">Employment & Payroll</div>
+          <div class="profile-compact-group">
+            <div class="profile-panel-title">Pay</div>
             <div class="profile-field-grid">
               <div class="profile-field"><span>Salary Type</span><strong>${emp.salary_type || "-"}</strong></div>
               <div class="profile-field"><span>Monthly Salary</span><strong>${money(emp.monthly_salary)}</strong></div>
               <div class="profile-field"><span>Hourly Rate</span><strong>${money(emp.hourly_rate)}</strong></div>
               <div class="profile-field"><span>Working Days</span><strong>${emp.working_days ?? "-"}</strong></div>
             </div>
-          </section>
+          </div>
 
-          <section class="profile-info-panel">
-            <div class="profile-panel-title">Attendance Configuration</div>
+          <div class="profile-compact-group">
+            <div class="profile-panel-title">Attendance</div>
             <div class="profile-field-grid">
-              <div class="profile-field"><span>Daily Hours</span><strong>${Number(emp.daily_hours || 0).toFixed(2)} h</strong></div>
+              <div class="profile-field"><span>Daily Hours</span><strong>${hoursAndMinutes(emp.daily_hours)}</strong></div>
               <div class="profile-field"><span>Check In</span><strong>${time(emp.expected_check_in)}</strong></div>
               <div class="profile-field"><span>Check Out</span><strong>${time(emp.expected_check_out)}</strong></div>
               <div class="profile-field"><span>Late Grace</span><strong>${emp.late_grace_minutes ?? 0} min</strong></div>
-            </div>
-          </section>
-
-          <section class="profile-info-panel">
-            <div class="profile-panel-title">Overtime & Grace Holidays</div>
-            <div class="profile-field-grid">
               <div class="profile-field"><span>Overtime</span><strong>${yesNo(emp.overtime_enabled)}</strong></div>
-              <div class="profile-field"><span>Overtime Rate</span><strong>${Number(emp.overtime_rate || 0).toFixed(2)}×</strong></div>
+              <div class="profile-field"><span>OT Rate</span><strong>${Number(emp.overtime_rate || 0).toFixed(2)}×</strong></div>
               <div class="profile-field"><span>Grace Holidays</span><strong>${Number(emp.grace_holidays || 0).toFixed(2)}</strong></div>
-              <div class="profile-field"><span>Account Status</span><strong>${emp.status || "-"}</strong></div>
             </div>
-          </section>
+          </div>
         </div>
 
-        <section class="profile-info-panel profile-full-panel">
-          <div class="profile-panel-title">Attendance Snapshot</div>
+        <section class="profile-summary-panel">
           <div id="profile-attendance-summary" class="profile-inline-loading">Loading attendance...</div>
         </section>
 
-        <section class="profile-info-panel profile-full-panel">
+        <section class="profile-history-panel">
           <div class="profile-panel-title">Salary History</div>
           <div id="profile-salary-history" class="profile-inline-loading">Loading salary history...</div>
         </section>

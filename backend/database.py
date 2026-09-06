@@ -56,7 +56,8 @@ def employee_db():
         late_grace_minutes INTEGER NOT NULL DEFAULT 0,
         overtime_enabled INTEGER NOT NULL DEFAULT 0,
         overtime_rate REAL NOT NULL DEFAULT 1,
-        working_days REAL NOT NULL,
+        working_days REAL NOT NULL DEFAULT 26,
+        working_weekdays TEXT NOT NULL DEFAULT '0,1,2,3,4,5',
         grace_holidays REAL NOT NULL DEFAULT 0
     )
     ''')
@@ -65,7 +66,14 @@ def employee_db():
     cursor.execute("PRAGMA table_info(employees)")
     existing_employee_columns = {row[1] for row in cursor.fetchall()}
     employee_columns = {
+        # Legacy column. Keep it for compatibility with existing databases.
         "working_days": "REAL NOT NULL DEFAULT 26",
+
+        # Employee-specific weekly schedule.
+        # Python weekday numbers:
+        # 0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri, 5=Sat, 6=Sun
+        "working_weekdays": "TEXT NOT NULL DEFAULT '0,1,2,3,4,5'",
+
         "grace_holidays": "REAL NOT NULL DEFAULT 0",
     }
     for column_name, column_definition in employee_columns.items():

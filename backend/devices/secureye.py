@@ -57,6 +57,26 @@ FRAMES = {
 }
 
 
+# def decode_timestamp(raw):
+#     value = int.from_bytes(raw, "little")
+
+#     minute = (value >> 26) & 0x3F
+#     hour = (value >> 21) & 0x1F
+#     day = (value >> 16) & 0x1F
+#     month = (value >> 12) & 0x0F
+#     year_field = value & 0x0FFF
+
+#     year = year_field + 1521
+
+#     return datetime(
+#         year,
+#         month,
+#         day,
+#         hour,
+#         minute
+#     )
+
+
 def decode_timestamp(raw):
     value = int.from_bytes(raw, "little")
 
@@ -67,6 +87,16 @@ def decode_timestamp(raw):
     year_field = value & 0x0FFF
 
     year = year_field + 1521
+
+    print(
+        "SECUREYE TIMESTAMP:",
+        "raw =", raw.hex(" "),
+        "year =", year,
+        "month =", month,
+        "day =", day,
+        "hour =", hour,
+        "minute =", minute
+    )
 
     return datetime(
         year,

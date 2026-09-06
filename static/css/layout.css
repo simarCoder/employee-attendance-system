@@ -94,24 +94,26 @@
 
 .sidebar-nav {
   flex: 1;
-  padding: 1.5rem 1rem;
+  padding: .9rem .7rem;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: .25rem;
   overflow-y: auto;
 }
 
 .nav-item {
   display: flex;
   align-items: center;
-  padding: 0.75rem 1rem;
+  padding: .62rem .75rem;
   color: var(--text-muted);
   border-radius: var(--radius);
   transition: all 0.2s;
   cursor: pointer;
   font-size: 0.95rem;
+  font-size: .84rem;
   font-weight: 500;
-  margin: 0.15rem 0;
+  margin: 0;
+  border-radius: 8px;
 }
 
 .nav-item:hover {
@@ -128,6 +130,7 @@
   background-color: rgba(99, 102, 241, 0.15);
   color: var(--primary);
   font-weight: 600;
+  box-shadow: inset 3px 0 0 var(--primary);
 }
 
 .nav-item-logout {
@@ -150,22 +153,22 @@
 .main-content {
   flex: 1;
   margin-left: var(--sidebar-width);
-  padding: 2rem;
+  padding: 1.25rem 1.5rem;
   max-width: 1600px;
   width: 100%;
   transition: margin-left 0.3s ease;
 }
 
 .content-header {
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
 }
 
 .content-header h2 {
-  font-size: 1.875rem;
-  margin-bottom: 0.5rem;
+  font-size: 1.45rem;
+  margin-bottom: 0.25rem;
 }
 
 .content-header p {
@@ -264,7 +267,7 @@
 .section-stack {
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 1rem;
 }
 
 /* --- DEMO MODE LAYOUT ADJUSTMENTS --- */
@@ -617,4 +620,42 @@ body:has(.demo-banner) #toast-container {
 
 .dashboard-container.sidebar-collapsed .sidebar-collapse-icon {
   transform: rotate(180deg);
+}
+
+.dashboard-attendance-table-container {
+  width: 100%;
+  max-width: 100%;
+
+  /*
+   * Give the table a real viewport.
+   * The height is calculated from the browser window,
+   * not from a hard-coded number of rows.
+   */
+  height: min(60vh, calc(100vh - 360px));
+
+  overflow-x: auto;
+  overflow-y: auto;
+
+  position: relative;
+}
+
+.dashboard-attendance-table-container table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.dashboard-attendance-table-container thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg-card);
+}
+
+.attendance-summary-card {
+  cursor: pointer;
+}
+
+.attendance-summary-card:hover {
+  transform: translateY(-1px);
 }

@@ -45,6 +45,114 @@ async function loadEmployees() {
   }
 }
 
+function calculateScheduleDuration(checkInId, checkOutId, dailyHoursId, displayId) {
+  const checkIn = document.getElementById(checkInId);
+  const checkOut = document.getElementById(checkOutId);
+  const dailyHours = document.getElementById(dailyHoursId);
+  const display = document.getElementById(displayId);
+
+  if (!checkIn || !checkOut || !dailyHours || !display) return;
+
+  if (!checkIn.value || !checkOut.value) {
+    dailyHours.value = "";
+    display.value = "";
+    return;
+  }
+
+  const toMinutes = (value) => {
+    const [hours, minutes] = value.split(":").map(Number);
+    return hours * 60 + minutes;
+  };
+
+  let duration = toMinutes(checkOut.value) - toMinutes(checkIn.value);
+
+  // A check-out earlier than check-in is an overnight shift.
+  if (duration < 0) duration += 24 * 60;
+
+  const hours = Math.floor(duration / 60);
+  const minutes = duration % 60;
+
+  // Keep the numeric value for the existing API, but never expose decimals.
+  dailyHours.value = String(duration / 60);
+  display.value = `${hours}h ${minutes}m`;
+}
+
+function calculateDailyHoursFromSchedule() {
+  calculateScheduleDuration(
+    "emp-check-in",
+    "emp-check-out",
+    "emp-daily-hours",
+    "emp-daily-hours-display",
+  );
+}
+
+function formatHoursAndMinutes(value) {
+  const totalMinutes = Math.round(Number(value || 0) * 60);
+  return `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`;
+}
+
+function initDailyHoursCalculation() {
+  const checkIn = document.getElementById("emp-check-in");
+  const checkOut = document.getElementById("emp-check-out");
+
+  if (!checkIn || !checkOut) return;
+
+  [checkIn, checkOut].forEach((input) => {
+    input.addEventListener("input", calculateDailyHoursFromSchedule);
+    input.addEventListener("change", calculateDailyHoursFromSchedule);
+  });
+}
+
+let workingDaysViewDate = new Date();
+
+function updateWorkingDaysPreview() {
+  const countElement = document.getElementById("emp-working-days-count");
+  const labelElement = document.getElementById("emp-working-days-label");
+  const hiddenInput = document.getElementById("emp-working-days");
+  const selectedDays = Array.from(
+    document.querySelectorAll("#emp-working-weekdays input:checked"),
+  ).map((input) => Number(input.value));
+
+  if (!countElement || !labelElement || !hiddenInput) return;
+
+  const year = workingDaysViewDate.getFullYear();
+  const month = workingDaysViewDate.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  let total = 0;
+
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const weekday = new Date(year, month, day).getDay();
+    const mondayBasedWeekday = (weekday + 6) % 7;
+    if (selectedDays.includes(mondayBasedWeekday)) total += 1;
+  }
+
+  labelElement.textContent = new Intl.DateTimeFormat("en-IN", {
+    month: "short",
+    year: "numeric",
+  }).format(workingDaysViewDate);
+  countElement.textContent = `${total} working days`;
+  hiddenInput.value = String(total);
+}
+
+function initWorkingDaysPreview() {
+  const previous = document.getElementById("emp-working-days-previous");
+  const next = document.getElementById("emp-working-days-next");
+  const weekdays = document.querySelectorAll("#emp-working-weekdays input");
+
+  if (!previous || !next || !weekdays.length) return;
+
+  previous.addEventListener("click", () => {
+    workingDaysViewDate.setMonth(workingDaysViewDate.getMonth() - 1);
+    updateWorkingDaysPreview();
+  });
+  next.addEventListener("click", () => {
+    workingDaysViewDate.setMonth(workingDaysViewDate.getMonth() + 1);
+    updateWorkingDaysPreview();
+  });
+  weekdays.forEach((input) => input.addEventListener("change", updateWorkingDaysPreview));
+  updateWorkingDaysPreview();
+}
+
 function deactivateEmployee(id, event) {
   if (event) event.stopPropagation();
 
@@ -244,6 +352,8 @@ function renderEmployeeTable(employees) {
 async function addEmployee(event) {
   event.preventDefault();
 
+  calculateDailyHoursFromSchedule();
+
   const name = document.getElementById("emp-name").value.trim();
 
   const role = document.getElementById("emp-role").value.trim();
@@ -259,6 +369,11 @@ async function addEmployee(event) {
   const dailyHours = parseFloat(
     document.getElementById("emp-daily-hours").value,
   );
+
+  if (!Number.isFinite(dailyHours) || dailyHours <= 0) {
+    showToast("Set a valid check-in and check-out time.", "error");
+    return;
+  }
 
   const expectedCheckIn = document.getElementById("emp-check-in").value || null;
 
@@ -299,6 +414,11 @@ async function addEmployee(event) {
     overtime_rate: overtimeRate,
     working_days: workingDays,
     grace_holidays: graceHolidays,
+    working_weekdays: Array.from(
+      document.querySelectorAll(
+        "#emp-working-weekdays input[type='checkbox']:checked",
+      ),
+    ).map((checkbox) => Number(checkbox.value)),
   };
 
   console.log("Adding employee:", payload);
@@ -481,17 +601,14 @@ async function editEmployee(id, event) {
 
             <div>
               <label class="form-label">Daily Hours</label>
-
               <input
-                id="edit-emp-daily-hours"
+                id="edit-emp-daily-hours-display"
                 class="form-control"
-                type="number"
-                min="1"
-                max="24"
-                step="1"
-                value="${emp.daily_hours ?? 8}"
-                required
+                type="text"
+                value="${formatHoursAndMinutes(emp.daily_hours)}"
+                readonly
               >
+              <input id="edit-emp-daily-hours" type="hidden" value="${emp.daily_hours ?? ""}">
             </div>
             <div>
                   <label class="form-label">Working Days</label>
@@ -653,6 +770,20 @@ async function editEmployee(id, event) {
 
     document.body.appendChild(modal);
 
+    const updateEditDailyHours = () =>
+      calculateScheduleDuration(
+        "edit-emp-check-in",
+        "edit-emp-check-out",
+        "edit-emp-daily-hours",
+        "edit-emp-daily-hours-display",
+      );
+
+    ["edit-emp-check-in", "edit-emp-check-out"].forEach((id) => {
+      const input = document.getElementById(id);
+      input.addEventListener("input", updateEditDailyHours);
+      input.addEventListener("change", updateEditDailyHours);
+    });
+
     document
       .getElementById("cancel-edit-employee")
       .addEventListener("click", () => {
@@ -663,6 +794,8 @@ async function editEmployee(id, event) {
       .getElementById("edit-employee-form")
       .addEventListener("submit", async (e) => {
         e.preventDefault();
+
+        updateEditDailyHours();
 
         const payload = {
           employee_id: id,
@@ -759,3 +892,6 @@ function escapeHtml(value) {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
 }
+
+document.addEventListener("DOMContentLoaded", initDailyHoursCalculation);
+document.addEventListener("DOMContentLoaded", initWorkingDaysPreview);

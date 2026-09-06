@@ -829,7 +829,6 @@ input:checked + .slider:before {
   border-top-right-radius: 12px;
 }
 
-
 /* =========================
    EMPLOYEE PROFILE
 ========================= */
@@ -1125,7 +1124,6 @@ input:checked + .slider:before {
   }
 }
 
-
 .salary-result-actions {
   display: flex;
   justify-content: flex-end;
@@ -1133,3 +1131,298 @@ input:checked + .slider:before {
   padding-top: 1rem;
   border-top: 1px solid var(--border);
 }
+
+/* =========================================================
+   DASHBOARD SUMMARY
+   ========================================================= */
+
+.dashboard-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 1rem;
+  align-items: stretch;
+}
+
+.dashboard-summary-card {
+  min-width: 0;
+  min-height: 0;
+  height: auto;
+  margin-bottom: 0;
+  padding: 10px 12px;
+  box-sizing: border-box;
+}
+
+.dashboard-summary-card h3 {
+  margin: 0 0 5px;
+  font-size: 0.65rem;
+  line-height: 1.2;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dashboard-summary-card .value {
+  margin: 0;
+  font-size: 1.35rem;
+  line-height: 1;
+  font-weight: 700;
+  color: var(--text-main);
+  white-space: nowrap;
+}
+
+/* =========================================================
+   DASHBOARD SUMMARY - RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 1100px) {
+  .dashboard-summary-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .dashboard-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 450px) {
+  .dashboard-summary-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* =========================================================
+   DASHBOARD ATTENDANCE TABLE RELOAD
+   ========================================================= */
+
+.dashboard-reload-btn {
+  gap: 0.45rem;
+  min-width: 105px;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.dashboard-reload-btn:hover {
+  transform: translateY(-1px);
+}
+
+.dashboard-reload-btn.is-loading {
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+.dashboard-reload-btn .reload-icon {
+  display: inline-flex;
+  font-size: 1rem;
+  line-height: 1;
+  transform-origin: center;
+}
+
+.dashboard-reload-btn.is-loading .reload-icon {
+  animation: dashboardReloadSpin 0.8s linear infinite;
+}
+
+@keyframes dashboardReloadSpin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---------------------------------------------------------
+   Table refresh animation
+   --------------------------------------------------------- */
+
+.dashboard-attendance-table-container {
+  position: relative;
+
+  /*
+   * Keep the attendance table scrollable.
+   * layout.css controls the actual viewport height.
+   */
+  overflow-x: auto;
+  overflow-y: auto;
+}
+
+.dashboard-attendance-table-container.is-reloading #dashboard-attendance-body {
+  opacity: 0.45;
+  filter: blur(0.4px);
+  transition:
+    opacity 0.2s ease,
+    filter 0.2s ease;
+}
+
+.dashboard-attendance-table-container #dashboard-attendance-body {
+  transition:
+    opacity 0.25s ease,
+    filter 0.25s ease;
+}
+
+/* Subtle moving refresh line */
+
+.dashboard-attendance-table-container.is-reloading::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -35%;
+  width: 35%;
+  height: 2px;
+  background: var(--primary);
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.8);
+  animation: dashboardTableProgress 0.9s ease-in-out infinite;
+  z-index: 5;
+}
+
+@keyframes dashboardTableProgress {
+  0% {
+    left: -35%;
+  }
+
+  100% {
+    left: 100%;
+  }
+}
+
+/* ---------------------------------------------------------
+   Rows enter smoothly after refresh
+   --------------------------------------------------------- */
+
+.dashboard-attendance-table-container.table-refreshed
+  #dashboard-attendance-body
+  tr {
+  animation: dashboardRowFadeIn 0.3s ease both;
+}
+
+.dashboard-attendance-table-container.table-refreshed
+  #dashboard-attendance-body
+  tr:nth-child(2) {
+  animation-delay: 0.025s;
+}
+
+.dashboard-attendance-table-container.table-refreshed
+  #dashboard-attendance-body
+  tr:nth-child(3) {
+  animation-delay: 0.05s;
+}
+
+.dashboard-attendance-table-container.table-refreshed
+  #dashboard-attendance-body
+  tr:nth-child(4) {
+  animation-delay: 0.075s;
+}
+
+.dashboard-attendance-table-container.table-refreshed
+  #dashboard-attendance-body
+  tr:nth-child(5) {
+  animation-delay: 0.1s;
+}
+
+@keyframes dashboardRowFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Employee entry form */
+.employee-entry-card { padding: 0; overflow: hidden; }
+.employee-entry-heading { display:flex; justify-content:space-between; gap:1rem; align-items:flex-start; padding:1rem 1.25rem .75rem; }
+.employee-entry-heading h3, .employee-form-section-heading h4 { margin:0; }
+.employee-entry-heading > div > p:last-child, .employee-form-section-heading p, .employee-form-actions p { color:var(--text-muted); margin:.35rem 0 0; font-size:.88rem; }
+.employee-entry-eyebrow { color:var(--primary); font-size:.72rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; margin:0 0 .35rem; }
+.employee-entry-required { color:var(--text-muted); font-size:.8rem; white-space:nowrap; }
+.employee-entry-form { padding:.75rem 1.25rem 1.25rem; }
+.employee-form-section + .employee-form-section { border-top:1px solid var(--border); margin-top:1.5rem; padding-top:1.5rem; }
+.employee-form-section-heading { display:flex; gap:.75rem; align-items:flex-start; margin-bottom:1rem; }
+.employee-form-step { display:grid; place-items:center; flex:0 0 1.8rem; width:1.8rem; height:1.8rem; border-radius:50%; background:color-mix(in srgb, var(--primary) 18%, transparent); color:var(--primary); font-size:.8rem; font-weight:700; }
+.employee-form-grid { display:grid; gap:.9rem; }
+.employee-form-grid--two { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.employee-form-grid--three { grid-template-columns:repeat(3,minmax(0,1fr)); }
+.employee-form-grid--four { grid-template-columns:repeat(4,minmax(0,1fr)); }
+.employee-form-grid--identity { gap:.7rem; }
+.employee-form-grid--details { grid-template-columns:repeat(5,minmax(0,1fr)); margin-top:.7rem; gap:.7rem; }
+.employee-form-grid--rules { margin-top:.7rem; gap:.7rem; }
+.employee-field, .employee-week-field, .employee-rate-field { display:flex; flex-direction:column; gap:.4rem; color:var(--text-muted); font-size:.82rem; font-weight:600; }
+.employee-field b { color:var(--primary); }
+.employee-week-field { margin-top:.7rem; }
+.employee-week-days { display:flex; flex-wrap:wrap; gap:.45rem; min-height:2.7rem; align-items:center; padding:.45rem .6rem; background:var(--bg-input); border:1px solid var(--border); border-radius:8px; }
+.employee-week-days label { color:var(--text-main); font-size:.8rem; font-weight:500; white-space:nowrap; }
+.employee-week-days input { accent-color:var(--primary); }
+.employee-overtime-row { display:flex; gap:1rem; align-items:end; margin-top:1rem; padding:1rem; border:1px solid var(--border); border-radius:10px; background:color-mix(in srgb, var(--bg-input) 60%, transparent); }
+.employee-toggle { display:flex; gap:.7rem; align-items:center; flex:1; cursor:pointer; }
+.employee-toggle input { width:1rem; height:1rem; accent-color:var(--primary); }
+.employee-toggle span { display:flex; flex-direction:column; gap:.15rem; font-size:.88rem; }
+.employee-toggle small { color:var(--text-muted); }
+.employee-rate-field { width:11rem; }
+.employee-form-actions { display:flex; align-items:center; justify-content:flex-end; gap:.75rem; margin-top:.9rem; padding-top:.9rem; border-top:1px solid var(--border); }
+.employee-form-actions p { margin:0; }
+.employee-form-actions .btn { min-width:10rem; }
+ .employee-rate-input { width:9rem; }
+.employee-hours-display { cursor:default; color:var(--text-main); font-weight:600; }
+.employee-working-days { margin-left:auto; display:flex; align-items:center; gap:.5rem; color:var(--text-muted); font-size:.8rem; }
+.employee-working-days button, .dashboard-period-btn { width:2rem; height:2rem; padding:0; display:grid; place-items:center; background:var(--bg-input); color:var(--text-main); border:1px solid var(--border); }
+.employee-working-days strong { color:var(--text-main); font-size:.82rem; }
+.dashboard-period-btn { border-radius:8px; font-size:1.1rem; }
+
+/* Compact, non-overflowing dashboard attendance table */
+.dashboard-attendance-table-container { overflow-x:hidden; }
+.dashboard-attendance-table-container .table th,
+.dashboard-attendance-table-container .table td {
+  padding: .55rem .45rem;
+  font-size: clamp(.66rem, .9vw, .82rem);
+  line-height: 1.25;
+  vertical-align: middle;
+}
+.dashboard-attendance-table-container .table th { font-size: clamp(.62rem, .8vw, .74rem); }
+.dashboard-attendance-table-container .table th:nth-child(1), .dashboard-attendance-table-container .table td:nth-child(1) { width: 8%; }
+.dashboard-attendance-table-container .table th:nth-child(2), .dashboard-attendance-table-container .table td:nth-child(2) { width: 5%; }
+.dashboard-attendance-table-container .table th:nth-child(3), .dashboard-attendance-table-container .table td:nth-child(3) { width: 18%; }
+.dashboard-attendance-table-container .table th:nth-child(4), .dashboard-attendance-table-container .table td:nth-child(4) { width: 20%; }
+.dashboard-attendance-table-container .table th:nth-child(5), .dashboard-attendance-table-container .table td:nth-child(5), .dashboard-attendance-table-container .table th:nth-child(6), .dashboard-attendance-table-container .table td:nth-child(6) { width: 8%; white-space: nowrap; }
+.dashboard-attendance-table-container .table th:nth-child(7), .dashboard-attendance-table-container .table td:nth-child(7) { width: 11%; }
+.dashboard-attendance-table-container .table th:nth-child(8), .dashboard-attendance-table-container .table td:nth-child(8) { width: 10%; }
+.dashboard-attendance-table-container .table th:nth-child(9), .dashboard-attendance-table-container .table td:nth-child(9) { width: 12%; white-space: nowrap; }
+.dashboard-attendance-table-container .table td:nth-child(3), .dashboard-attendance-table-container .table td:nth-child(4) { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+@media (max-width: 700px) { .dashboard-attendance-table-container .table th, .dashboard-attendance-table-container .table td { padding:.42rem .25rem; font-size:clamp(.55rem, 2vw, .7rem); } .dashboard-attendance-table-container .table th { font-size:clamp(.52rem, 1.8vw, .64rem); letter-spacing:0; } }
+
+/* Shared compact UI system */
+.card { padding: 1rem; border-radius: 10px; }
+.card > h3 { margin-bottom: .7rem; font-size: 1rem; }
+.form-label { margin-bottom: .3rem; font-size: .76rem; }
+.form-control { padding: .58rem .72rem; font-size: .84rem; min-height: 2.35rem; }
+.btn { padding: .55rem .9rem; font-size: .82rem; min-height: 2.35rem; }
+.table th { padding: .58rem .65rem; font-size: .68rem; }
+.table td { padding: .6rem .65rem; font-size: .82rem; }
+.table-container { border-radius: 9px; }
+.status-badge { font-size: .72rem; padding: .24rem .55rem; }
+
+/* Compact employee profile */
+.employee-profile-header { padding: 0 0 .8rem; margin-bottom: .85rem; }
+.employee-profile-header h2 { font-size: 1.35rem; }
+.employee-profile-eyebrow { margin-bottom: .15rem; }
+.profile-compact-grid { display:grid; grid-template-columns:minmax(0,.85fr) minmax(0,1fr) minmax(0,1.15fr); gap:1.1rem; }
+.profile-compact-group + .profile-compact-group { border-left:1px solid var(--border); padding-left:1.1rem; }
+.profile-compact-group .profile-field-grid { gap:0 .9rem; }
+.profile-compact-group .profile-field { padding:.45rem 0; }
+.profile-compact-group .profile-panel-title { margin-bottom:.45rem; }
+.profile-summary-panel { margin-top:.9rem; padding:.75rem 0; border-top:1px solid var(--border); border-bottom:1px solid var(--border); }
+.profile-history-panel { margin-top:.9rem; }
+.profile-summary-panel .profile-stat-grid > div { padding:.1rem 1rem; border:0; border-right:1px solid var(--border); border-radius:0; background:transparent; }
+.profile-summary-panel .profile-stat-grid > div:last-child { border-right:0; }
+@media (max-width: 900px) { .profile-compact-grid { grid-template-columns:1fr 1fr; } .profile-compact-group:last-child { grid-column:1 / -1; border-left:0; border-top:1px solid var(--border); padding-left:0; padding-top:.85rem; } }
+@media (max-width: 760px) { .profile-compact-grid { grid-template-columns:1fr; } .profile-compact-group + .profile-compact-group, .profile-compact-group:last-child { grid-column:auto; border-left:0; border-top:1px solid var(--border); padding-left:0; padding-top:.85rem; } .profile-summary-panel .profile-stat-grid > div { padding:.45rem 0; border-right:0; border-bottom:1px solid var(--border); } .profile-summary-panel .profile-stat-grid > div:last-child { border-bottom:0; } }
+@media (max-width: 900px) { .employee-form-grid--four, .employee-form-grid--details { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media (max-width: 600px) { .employee-entry-heading, .employee-form-actions, .employee-overtime-row { flex-direction:column; align-items:stretch; } .employee-entry-required { white-space:normal; } .employee-entry-form, .employee-entry-heading { padding:1rem; } .employee-form-grid--two, .employee-form-grid--three, .employee-form-grid--four { grid-template-columns:1fr; } .employee-week-field { grid-column:auto; } .employee-rate-field { width:auto; } }

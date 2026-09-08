@@ -52,7 +52,7 @@ FRAMES = {
     ),
 
     "finish_81": bytes.fromhex(
-        "55 aa 01 81 01 00 00 00 00 00 ff ff 00 00 09 00"
+        "55 aa 01 81 01 00 00 00 00 00 ff ff 00 00 0a 00"
     ),
 }
 
@@ -78,33 +78,39 @@ FRAMES = {
 
 
 def decode_timestamp(raw):
+    """
+    Decode the Secureye packed 4-byte timestamp.
+
+    Secureye timestamp format:
+
+        bits 26-31 : minute
+        bits 21-25 : hour
+        bits 16-20 : day
+        bits 12-15 : month
+        bits  0-11 : year - 1521
+    """
+
+    if len(raw) != 4:
+        return None
+
     value = int.from_bytes(raw, "little")
 
     minute = (value >> 26) & 0x3F
     hour = (value >> 21) & 0x1F
     day = (value >> 16) & 0x1F
     month = (value >> 12) & 0x0F
-    year_field = value & 0x0FFF
+    year = (value & 0x0FFF) + 1521
 
-    year = year_field + 1521
-
-    print(
-        "SECUREYE TIMESTAMP:",
-        "raw =", raw.hex(" "),
-        "year =", year,
-        "month =", month,
-        "day =", day,
-        "hour =", hour,
-        "minute =", minute
-    )
-
-    return datetime(
-        year,
-        month,
-        day,
-        hour,
-        minute
-    )
+    try:
+        return datetime(
+            year,
+            month,
+            day,
+            hour,
+            minute
+        )
+    except ValueError:
+        return None
 
 
 class Secureye:
@@ -168,66 +174,304 @@ class Secureye:
         return self.recv_until_quiet()
 
     def get_record_count(self):
-
         response = self.command("cmd_b4")
 
-        if len(response) < 5:
+        if len(response) < 6:
             raise ValueError("Invalid B4 response")
 
-        return response[4]
+        count = int.from_bytes(
+            response[4:6],
+            "little"
+        )
 
-    def get_logs(self, count):
-
-        if count <= 0:
-            return []
-
-        data_length = count * 12
-
-        request = (
+        return count
+    @staticmethod
+    def make_a4_first_request(count):
+        return (
             bytes.fromhex(
                 "55 aa 01 a4 00 00 00 00"
             )
             + count.to_bytes(4, "little")
-            + data_length.to_bytes(2, "little")
-            + bytes.fromhex("08 00")
+            + bytes.fromhex("00 04 08 00")
         )
+        
+        
+        
+    # def get_logs(self, count):
 
+    #     if count <= 0:
+    #         return []
+
+    #     data_length = count * 12
+
+    #     request = (
+    #         bytes.fromhex(
+    #             "55 aa 01 a4 00 00 00 00"
+    #         )
+    #         + count.to_bytes(4, "little")
+    #         + data_length.to_bytes(2, "little")
+    #         + bytes.fromhex("08 00")
+    #     )
+
+    #     self.send(request)
+
+    #     response = self.recv_until_quiet(5.0)
+
+    #     if len(response) < 16:
+    #         raise ValueError("Invalid A4 response")
+
+    #     # 10-byte ACK + 6-byte A4 header
+    #     header = response[10:16]
+
+    #     payload = response[16:]
+
+    #     # -------------------------------------------------
+    #     # CRITICAL DISCOVERY
+    #     #
+    #     # First card ID lives in A4 header byte 2
+    #     # Example:
+    #     #
+    #     # 55 aa 01 00 00 00
+    #     #       ^^
+    #     #       first card ID
+    #     # -------------------------------------------------
+
+    #     first_card_id = header[2]
+
+    #     records = []
+
+    #     offset = 0
+    #     current_card_id = first_card_id
+
+    #     while offset < len(payload):
+
+    #         remaining = len(payload) - offset
+
+    #         # Complete record
+    #         if remaining >= 12:
+
+    #             raw = payload[
+    #                 offset:
+    #                 offset + 12
+    #             ]
+
+    #             event = raw[2]
+
+    #             timestamp_raw = raw[4:8]
+
+    #             next_card_id = int.from_bytes(
+    #                 raw[8:12],
+    #                 "little"
+    #             )
+
+    #             timestamp = decode_timestamp(
+    #                 timestamp_raw
+    #             )
+
+    #             records.append({
+    #                 "card_id": current_card_id,
+    #                 "event": event,
+    #                 "timestamp": timestamp,
+    #                 "timestamp_raw": timestamp_raw.hex(" "),
+    #                 "next_card_id": next_card_id,
+    #                 "raw": raw.hex(" "),
+    #             })
+
+    #             current_card_id = next_card_id
+
+    #             offset += 12
+
+    #         else:
+
+    #             # Final 10-byte record
+    #             if remaining >= 8:
+
+    #                 raw = payload[offset:]
+
+    #                 event = raw[2]
+
+    #                 timestamp_raw = raw[4:8]
+
+    #                 timestamp = decode_timestamp(
+    #                     timestamp_raw
+    #                 )
+
+    #                 records.append({
+    #                     "card_id": current_card_id,
+    #                     "event": event,
+    #                     "timestamp": timestamp,
+    #                     "timestamp_raw": timestamp_raw.hex(" "),
+    #                     "next_card_id": None,
+    #                     "raw": raw.hex(" "),
+    #                 })
+
+    #             break
+
+    #     return records
+    @staticmethod
+    def make_a4_continuation_request(
+        block_index,
+        request_length
+    ):
+        if block_index < 1:
+            raise ValueError(
+                "Continuation block_index must be >= 1"
+            )
+
+        if request_length <= 0:
+            raise ValueError(
+                "request_length must be > 0"
+            )
+
+        if request_length > 0xFFFF:
+            raise ValueError(
+                "request_length is too large"
+            )
+
+        stage = 8 + block_index
+
+        return (
+            bytes.fromhex(
+                "55 aa 01 a4 00 00 00 00"
+            )
+            + b"\x00\x00"
+            + block_index.to_bytes(2, "little")
+            + request_length.to_bytes(2, "little")
+            + stage.to_bytes(2, "little")
+        )
+        
+    def send_a4(self, request):
         self.send(request)
 
         response = self.recv_until_quiet(5.0)
 
-        if len(response) < 16:
-            raise ValueError("Invalid A4 response")
+        if len(response) < 14:
+            raise ValueError(
+                f"Invalid A4 response: {len(response)} bytes"
+            )
 
-        # 10-byte ACK + 6-byte A4 header
-        header = response[10:16]
+        if response[10:12] != b"\x55\xaa":
+            raise ValueError(
+                "Invalid A4 response: missing 55 aa payload marker"
+            )
 
-        payload = response[16:]
+        return response
+    def get_logs_raw(self, count):
 
-        # -------------------------------------------------
-        # CRITICAL DISCOVERY
-        #
-        # First card ID lives in A4 header byte 2
-        # Example:
-        #
-        # 55 aa 01 00 00 00
-        #       ^^
-        #       first card ID
-        # -------------------------------------------------
+        if count <= 0:
+            return b""
 
-        first_card_id = header[2]
+        total_data_length = count * 12
 
+        blocks = []
+        remaining = total_data_length
+        block_index = 0
+
+        while remaining > 0:
+
+            if block_index == 0:
+
+                request_length = min(
+                    1024,
+                    remaining
+                )
+
+                request = self.make_a4_first_request(
+                    count
+                )
+
+            else:
+
+                request_length = min(
+                    1024,
+                    remaining
+                )
+
+                request = self.make_a4_continuation_request(
+                    block_index,
+                    request_length
+                )
+
+            response = self.send_a4(request)
+
+            raw_data = response[12:]
+
+            expected_response_data = (
+                request_length + 2
+            )
+
+            if len(raw_data) != expected_response_data:
+                raise ValueError(
+                    "A4 response size mismatch: "
+                    f"received {len(raw_data)}, "
+                    f"expected {expected_response_data}"
+                )
+
+            if raw_data[-2:] != b"\x00\x00":
+                raise ValueError(
+                    "A4 response missing 00 00 terminator"
+                )
+
+            block_data = raw_data[:-2]
+
+            if len(block_data) != request_length:
+                raise ValueError(
+                    "A4 block length mismatch: "
+                    f"received {len(block_data)}, "
+                    f"expected {request_length}"
+                )
+
+            blocks.append(block_data)
+
+            remaining -= request_length
+            block_index += 1
+
+        combined = b"".join(blocks)
+
+        if len(combined) != total_data_length:
+            raise ValueError(
+                "A4 combined data length mismatch: "
+                f"received {len(combined)}, "
+                f"expected {total_data_length}"
+            )
+
+        return combined
+    
+    def parse_attendance(self, payload, expected_count):
+
+        if len(payload) != expected_count * 12:
+            raise ValueError(
+                "A4 payload length mismatch: "
+                f"received {len(payload)}, "
+                f"expected {expected_count * 12}"
+            )
+
+        if len(payload) < 14:
+            raise ValueError(
+                "A4 payload is too short"
+            )
+
+        first_card_id = int.from_bytes(
+            payload[0:4],
+            "little"
+        )
+
+        offset = 4
+        current_card_id = first_card_id
         records = []
 
-        offset = 0
-        current_card_id = first_card_id
+        for number in range(
+            1,
+            expected_count
+        ):
 
-        while offset < len(payload):
+            if number < expected_count:
 
-            remaining = len(payload) - offset
-
-            # Complete record
-            if remaining >= 12:
+                if offset + 12 > len(payload):
+                    raise ValueError(
+                        f"Record {number}: "
+                        "not enough bytes"
+                    )
 
                 raw = payload[
                     offset:
@@ -238,20 +482,28 @@ class Secureye:
 
                 timestamp_raw = raw[4:8]
 
+                timestamp = decode_timestamp(
+                    timestamp_raw
+                )
+
+                if timestamp is None:
+                    raise ValueError(
+                        f"Invalid timestamp in record {number}: "
+                        f"{timestamp_raw.hex(' ')}"
+                    )
+
                 next_card_id = int.from_bytes(
                     raw[8:12],
                     "little"
                 )
 
-                timestamp = decode_timestamp(
-                    timestamp_raw
-                )
-
                 records.append({
+                    "record_number": number,
                     "card_id": current_card_id,
                     "event": event,
                     "timestamp": timestamp,
-                    "timestamp_raw": timestamp_raw.hex(" "),
+                    "timestamp_raw":
+                        timestamp_raw.hex(" "),
                     "next_card_id": next_card_id,
                     "raw": raw.hex(" "),
                 })
@@ -260,34 +512,46 @@ class Secureye:
 
                 offset += 12
 
-            else:
+        final_raw = payload[offset:]
 
-                # Final 10-byte record
-                if remaining >= 8:
+        if len(final_raw) != 8:
+            raise ValueError(
+                "Invalid final attendance record: "
+                f"{len(final_raw)} bytes"
+            )
 
-                    raw = payload[offset:]
+        final_event = final_raw[2]
 
-                    event = raw[2]
+        final_timestamp_raw = final_raw[4:8]
 
-                    timestamp_raw = raw[4:8]
+        final_timestamp = decode_timestamp(
+            final_timestamp_raw
+        )
 
-                    timestamp = decode_timestamp(
-                        timestamp_raw
-                    )
+        if final_timestamp is None:
+            raise ValueError(
+                "Invalid final attendance timestamp: "
+                f"{final_timestamp_raw.hex(' ')}"
+            )
 
-                    records.append({
-                        "card_id": current_card_id,
-                        "event": event,
-                        "timestamp": timestamp,
-                        "timestamp_raw": timestamp_raw.hex(" "),
-                        "next_card_id": None,
-                        "raw": raw.hex(" "),
-                    })
+        records.append({
+            "record_number": expected_count,
+            "card_id": current_card_id,
+            "event": final_event,
+            "timestamp": final_timestamp,
+            "timestamp_raw":
+                final_timestamp_raw.hex(" "),
+            "next_card_id": None,
+            "raw": final_raw.hex(" "),
+        })
 
-                break
+        if len(records) != expected_count:
+            raise ValueError(
+                f"Parsed {len(records)} records, "
+                f"expected {expected_count}"
+            )
 
         return records
-
     def download_records(self):
 
         self.connect()
@@ -304,16 +568,21 @@ class Secureye:
             count = self.get_record_count()
 
             if count == 0:
+                self.command("finish_81")
                 return []
 
-            records = self.get_logs(count)
+            payload = self.get_logs_raw(count)
+
+            records = self.parse_attendance(
+                payload,
+                count
+            )
 
             self.command("finish_81")
 
             return records
 
         finally:
-
             self.close()
 
     def close(self):

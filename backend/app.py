@@ -18,6 +18,7 @@ from flask import (
 )
 import secrets
 from functools import wraps
+from app_version import APP_VERSION
 from backend.utils.security import decrypt_password
 
 def open_browser():
@@ -410,7 +411,11 @@ def system_user_permission_required(action):
 def dashboard():
     # Pass demo mode status to template
     demo_mode = get_demo_mode_status()
-    return render_template("dashboard.html", demo_mode=demo_mode)
+    return render_template(
+        "dashboard.html",
+        demo_mode=demo_mode,
+        app_version=APP_VERSION,
+    )
 
 # -------------------------
 # AUTH ROUTES

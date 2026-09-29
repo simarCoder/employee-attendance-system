@@ -189,13 +189,16 @@ async function loadAttendanceHistory(empId) {
             : "-";
 
           tr.innerHTML = `
-                        <td>${record.date}</td>
+                        <td>${formatDateDDMMYYYY(record.date)}</td>
                         <td>${checkInTime}</td>
                         <td>${checkOutTime}</td>
                         <td>${formatDuration(record.worked_minutes)}</td>
                     `;
           tbody.appendChild(tr);
         });
+        filterIndividualAttendance(
+          document.getElementById("individual-attendance-search")?.value || "",
+        );
       }
     } else {
       console.error("Failed to fetch attendance history");
@@ -209,10 +212,38 @@ async function loadAttendanceHistory(empId) {
   }
 }
 
+function filterIndividualAttendance(query) {
+  const tbody = document.getElementById("attendance-table-body");
+  if (!tbody) return;
+  const term = String(query || "").trim().toLocaleLowerCase();
+  let visibleCount = 0;
+  let hasRecords = false;
+  tbody.querySelectorAll("tr").forEach((row) => {
+    if (row.cells.length === 1 && row.cells[0].colSpan > 1) return;
+    hasRecords = true;
+    const matches = row.textContent.toLocaleLowerCase().includes(term);
+    row.hidden = !matches;
+    if (matches) visibleCount += 1;
+  });
+  let emptyRow = document.getElementById("individual-attendance-no-results");
+  if (!emptyRow) {
+    emptyRow = document.createElement("tr");
+    emptyRow.id = "individual-attendance-no-results";
+    emptyRow.innerHTML = '<td colspan="4" class="individual-attendance-empty">No matching attendance records.</td>';
+    tbody.appendChild(emptyRow);
+  }
+  emptyRow.hidden = !hasRecords || visibleCount > 0 || !term;
+}
+
+function currentAttendanceMonthValue() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
 function shiftIndividualAttendanceMonth(offset) {
   const input = document.getElementById("individual-attendance-month");
   if (!input) return;
-  const [year, month] = (input.value || new Date().toISOString().slice(0, 7)).split("-").map(Number);
+  const [year, month] = (input.value || currentAttendanceMonthValue()).split("-").map(Number);
   const next = new Date(year, month - 1 + offset, 1);
   input.value = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}`;
   const employeeId = document.getElementById("att-employee-select")?.value;
@@ -221,7 +252,7 @@ function shiftIndividualAttendanceMonth(offset) {
 
 const individualMonth = document.getElementById("individual-attendance-month");
 if (individualMonth) {
-  individualMonth.value = new Date().toISOString().slice(0, 7);
+  individualMonth.value = currentAttendanceMonthValue();
   individualMonth.addEventListener("change", () => {
     const employeeId = document.getElementById("att-employee-select")?.value;
     if (employeeId) loadAttendanceHistory(employeeId);

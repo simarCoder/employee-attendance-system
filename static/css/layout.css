@@ -504,6 +504,18 @@ body:has(.demo-banner) #toast-container {
   line-height: 1.45;
 }
 
+.footer-version {
+  margin-top: 0.35rem;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  letter-spacing: 0.02em;
+}
+
+.footer-version strong {
+  color: var(--text-main);
+  font-weight: 650;
+}
+
 .exit-application {
   margin-top: 0.75rem;
   border-top: 1px solid var(--border);
@@ -579,7 +591,8 @@ body:has(.demo-banner) #toast-container {
 .dashboard-container.sidebar-collapsed .footer-brand,
 .dashboard-container.sidebar-collapsed .footer-contact,
 .dashboard-container.sidebar-collapsed .footer-support,
-.dashboard-container.sidebar-collapsed .footer-copyright {
+.dashboard-container.sidebar-collapsed .footer-copyright,
+.dashboard-container.sidebar-collapsed .footer-version {
   opacity: 0;
   width: 0;
   overflow: hidden;
@@ -658,4 +671,28 @@ body:has(.demo-banner) #toast-container {
 
 .attendance-summary-card:hover {
   transform: translateY(-1px);
+}
+
+/* Individual attendance history uses the dashboard's bounded table viewport. */
+.individual-attendance-scroll {
+  width: 100%;
+  max-width: 100%;
+  height: min(52vh, 460px);
+  min-height: 220px;
+  overflow: auto;
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.individual-attendance-scroll thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg-card);
+}
+
+.individual-attendance-scroll table {
+  min-width: 540px;
+  margin: 0;
 }

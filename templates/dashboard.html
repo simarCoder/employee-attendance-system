@@ -281,6 +281,7 @@
             © 2026 Operon Solutions.<br />
             All Rights Reserved.
           </div>
+          <div class="footer-version">Software version <strong>v{{ app_version }}</strong></div>
         </div>
       </aside>
 
@@ -454,6 +455,7 @@
               >
                 →
               </button>
+              <input type="search" id="dashboard-attendance-search" class="form-control table-search" placeholder="Search name, ID, role, or status…" aria-label="Search attendance records" oninput="filterDashboardAttendance(this.value)" />
             </div>
           </div>
 
@@ -672,6 +674,7 @@
 
             <!-- List Table (Bottom) -->
             <div class="employee-directory-table">
+              <input type="search" id="employee-directory-search" class="form-control table-search" placeholder="Search employees by name, ID, role, phone…" aria-label="Search employees" oninput="filterEmployeeDirectory(this.value)" />
               <table class="table employee-directory">
                 <thead>
                   <!-- <tr class="directory-group-header">
@@ -797,6 +800,7 @@
               </button>
             </div>
 
+            <input type="search" id="biometric-mapping-search" class="form-control table-search" placeholder="Search mappings by employee or device ID…" aria-label="Search biometric mappings" oninput="filterBiometricMappings(this.value)" />
             <div class="table-container" style="margin-top: 1.5rem">
               <table class="table">
                 <thead>
@@ -897,10 +901,13 @@
                   <h3>Individual Attendance</h3>
                   <p class="individual-attendance-caption" id="individual-attendance-caption">Select an employee to view monthly records</p>
                 </div>
-                <div class="individual-month-control" aria-label="Attendance month">
-                  <button type="button" id="individual-attendance-previous" class="btn dashboard-period-btn" aria-label="Previous month" title="Previous month">←</button>
-                  <input type="month" id="individual-attendance-month" class="form-control" aria-label="Select attendance month">
-                  <button type="button" id="individual-attendance-next" class="btn dashboard-period-btn" aria-label="Next month" title="Next month">→</button>
+                <div class="individual-attendance-tools">
+                  <input type="search" id="individual-attendance-search" class="form-control table-search" placeholder="Search this month…" aria-label="Search monthly attendance" oninput="filterIndividualAttendance(this.value)" />
+                  <div class="individual-month-control" aria-label="Attendance month">
+                    <button type="button" id="individual-attendance-previous" class="btn dashboard-period-btn" aria-label="Previous month" title="Previous month">←</button>
+                    <input type="month" id="individual-attendance-month" class="form-control" aria-label="Select attendance month">
+                    <button type="button" id="individual-attendance-next" class="btn dashboard-period-btn" aria-label="Next month" title="Next month">→</button>
+                  </div>
                 </div>
               </div>
               <div class="individual-attendance-scroll" role="region" aria-label="Monthly attendance records" tabindex="0">
@@ -945,6 +952,7 @@
                   Mark Present (0)
                 </button>
               </div>
+              <input type="search" id="bulk-attendance-search" class="form-control table-search" placeholder="Search active employees by name, ID, or role…" aria-label="Search bulk attendance employees" oninput="filterBulkAttendance(this.value)" />
               <div class="table-container">
                 <table class="table">
                   <thead>
@@ -1037,6 +1045,7 @@
         <section id="employee-profile" class="section">
           <div id="profile-list-view" class="card">
             <h3>Select Employee</h3>
+            <input type="search" id="profile-employee-search" class="form-control table-search" placeholder="Search by name, ID, or role…" aria-label="Search employees for profile" oninput="filterProfileEmployeeList(this.value)" />
             <table class="table">
               <thead>
                 <tr>
@@ -1120,6 +1129,7 @@
             </div>
             <div class="card">
               <h3>Documents</h3>
+              <input type="search" id="employee-documents-search" class="form-control table-search" placeholder="Search documents by type, number, or file…" aria-label="Search employee documents" oninput="filterTableBodyRows('employee-docs-body', this.value)" />
               <div class="table-container">
                 <table class="table">
                   <thead>
@@ -1549,6 +1559,7 @@
             style="display: none; margin-top: 2rem"
           >
             <h3>User Management</h3>
+            <input type="search" id="system-users-search" class="form-control table-search" placeholder="Search users by username, ID, or role…" aria-label="Search system users" oninput="filterTableBodyRows('system-users-table-body', this.value)" />
             <div class="table-container">
               <table class="table">
                 <thead>
@@ -1588,7 +1599,9 @@
 
     <script>
       document.getElementById("stat-date").innerText =
-        new Date().toLocaleDateString();
+        formatDateDDMMYYYY(
+          `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-${String(new Date().getDate()).padStart(2, "0")}`,
+        );
 
       // --- SIDEBAR LOGIC ---
       function toggleSidebar() {

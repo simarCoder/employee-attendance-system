@@ -52,6 +52,43 @@ function handleConfirmYes() {
 
 // --- SHARED HELPERS ---
 
+/** Format stored ISO dates as DD-MM-YYYY for attendance screens. */
+function formatDateDDMMYYYY(dateString) {
+  if (!dateString) return "-";
+  const match = String(dateString).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return String(dateString);
+  return `${match[3]}-${match[2]}-${match[1]}`;
+}
+
+window.formatDateDDMMYYYY = formatDateDDMMYYYY;
+
+function filterTableBodyRows(tbodyId, query) {
+  const tbody = document.getElementById(tbodyId);
+  if (!tbody) return;
+  const term = String(query || "").trim().toLocaleLowerCase();
+  let recordCount = 0;
+  let matchCount = 0;
+  Array.from(tbody.rows).forEach((row) => {
+    if (row.cells.length === 1 && row.cells[0].colSpan > 1) return;
+    recordCount += 1;
+    const matches = row.textContent.toLocaleLowerCase().includes(term);
+    row.hidden = !matches;
+    if (matches) matchCount += 1;
+  });
+  const emptyId = `${tbodyId}-search-empty`;
+  let emptyRow = document.getElementById(emptyId);
+  if (!emptyRow && recordCount) {
+    emptyRow = document.createElement("tr");
+    emptyRow.id = emptyId;
+    const colSpan = tbody.rows[0]?.cells.length || 1;
+    emptyRow.innerHTML = `<td colspan="${colSpan}" class="individual-attendance-empty">No matching records.</td>`;
+    tbody.appendChild(emptyRow);
+  }
+  if (emptyRow) emptyRow.hidden = !term || matchCount > 0 || recordCount === 0;
+}
+
+window.filterTableBodyRows = filterTableBodyRows;
+
 /**
  * Populates a select dropdown with employee options.
  * Used by Attendance and Salary modules.

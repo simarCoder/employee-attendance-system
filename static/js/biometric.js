@@ -47,6 +47,9 @@ async function loadBiometricMappings() {
 
       tbody.appendChild(row);
     });
+    filterBiometricMappings(
+      document.getElementById("biometric-mapping-search")?.value || "",
+    );
   } catch (error) {
     console.error("Biometric mappings failed:", error);
 
@@ -59,6 +62,16 @@ async function loadBiometricMappings() {
             </tr>
         `;
   }
+}
+
+function filterBiometricMappings(query) {
+  const tbody = document.getElementById("biometric-mapping-body");
+  if (!tbody) return;
+  const term = String(query || "").trim().toLocaleLowerCase();
+  tbody.querySelectorAll("tr").forEach((row) => {
+    if (row.cells.length === 1 && row.cells[0].colSpan > 1) return;
+    row.hidden = !row.textContent.toLocaleLowerCase().includes(term);
+  });
 }
 
 async function loadBiometricEmployees() {

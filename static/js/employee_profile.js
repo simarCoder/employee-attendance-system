@@ -186,10 +186,11 @@ function loadEmployeeSalaryHistory(employeeId) {
       }
 
       target.innerHTML = `
+        <input type="search" id="profile-salary-history-search" class="form-control table-search" placeholder="Search salary history by month or status…" aria-label="Search employee salary history" oninput="filterTableBodyRows('profile-salary-history-body', this.value)" />
         <div class="table-container profile-history-table">
           <table class="table">
             <thead><tr><th>Month</th><th>Base Salary</th><th>Deductions</th><th>Total</th><th>Status</th><th></th></tr></thead>
-            <tbody>
+            <tbody id="profile-salary-history-body">
               ${records
                 .slice(0, 12)
                 .map((record) => {
@@ -212,6 +213,7 @@ function loadEmployeeSalaryHistory(employeeId) {
           </table>
         </div>
       `;
+      filterTableBodyRows("profile-salary-history-body", "");
     })
     .catch((err) => {
       console.error("Salary history load error", err);
@@ -304,6 +306,10 @@ function loadEmployeeDocuments(employeeId) {
 
         tbody.appendChild(tr);
       });
+      filterTableBodyRows(
+        "employee-docs-body",
+        document.getElementById("employee-documents-search")?.value || "",
+      );
     })
     .catch((err) => {
       console.error(err);
@@ -343,44 +349,50 @@ function executeDelete(docId) {
 /* =========================
    LOAD EMPLOYEE LIST (DETAILS SECTION)
 ========================= */
+let profileEmployeeRecords = [];
+
+function renderProfileEmployeeList(query = "") {
+  const tbody = document.getElementById("profile-employee-list-body");
+  if (!tbody) return;
+  const term = String(query || "").trim().toLocaleLowerCase();
+  const employees = profileEmployeeRecords.filter((emp) =>
+    [emp.id, emp.name, emp.role].some((value) =>
+      String(value ?? "").toLocaleLowerCase().includes(term),
+    ),
+  );
+  tbody.innerHTML = "";
+  if (!employees.length) {
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">No matching employees found.</td></tr>`;
+    return;
+  }
+
+  employees.forEach((emp) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>#${emp.id}</td>
+      <td>${emp.name}</td>
+      <td>${emp.role}</td>
+      <td><button class="btn btn-primary" style="padding:4px 8px;">View Profile</button></td>
+    `;
+    tr.querySelector("button").addEventListener("click", () => {
+      openEmployeeProfile(emp.id);
+    });
+    tbody.appendChild(tr);
+  });
+}
+
+function filterProfileEmployeeList(query) {
+  renderProfileEmployeeList(query);
+}
+
 function loadProfileEmployeeList() {
   fetch(`${API_BASE}/employees`)
     .then((res) => res.json())
     .then((employees) => {
-      const tbody = document.getElementById("profile-employee-list-body");
-      tbody.innerHTML = "";
-
-      if (!employees || employees.length === 0) {
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="4" style="text-align:center;">
-              No employees found
-            </td>
-          </tr>
-        `;
-        return;
-      }
-
-      employees.forEach((emp) => {
-        const tr = document.createElement("tr");
-
-        tr.innerHTML = `
-          <td>#${emp.id}</td>
-          <td>${emp.name}</td>
-          <td>${emp.role}</td>
-          <td>
-            <button class="btn btn-primary" style="padding:4px 8px;">
-              View Profile
-            </button>
-          </td>
-        `;
-
-        tr.querySelector("button").addEventListener("click", () => {
-          openEmployeeProfile(emp.id);
-        });
-
-        tbody.appendChild(tr);
-      });
+      profileEmployeeRecords = Array.isArray(employees) ? employees : [];
+      renderProfileEmployeeList(
+        document.getElementById("profile-employee-search")?.value || "",
+      );
     });
 }
 

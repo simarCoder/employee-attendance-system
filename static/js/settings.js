@@ -328,6 +328,10 @@ async function loadSystemUsers() {
 
       tableBody.appendChild(row);
     });
+    filterTableBodyRows(
+      "system-users-table-body",
+      document.getElementById("system-users-search")?.value || "",
+    );
   } catch (error) {
     console.error("System users loading failed:", error);
 

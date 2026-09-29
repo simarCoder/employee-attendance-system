@@ -3,6 +3,9 @@
 //   Handles Salary Generation and Viewing.
 //
 
+let salaryRecordsSearchTerm = "";
+let salaryRecordsRequestSequence = 0;
+
 // Initialize Date Pickers on Load
 // document.addEventListener("DOMContentLoaded", () => {
 //   populateDateSelectors();
@@ -403,7 +406,7 @@ async function generateSalaryRegister(month, role) {
       const skipped = (result.errors || []).length;
       showToast(skipped ? `Register ready; ${skipped} employee(s) need attention.` : "Payroll register generated.", skipped ? "error" : "success");
     }
-    loadSalaryRecords();
+    loadSalaryRecords(month);
   } catch (error) {
     container.innerHTML = `<div class="card">${error.message}</div>`;
     if (window.showToast) showToast(error.message, "error");
@@ -427,9 +430,10 @@ function renderSalaryRegister(records, month, errors = []) {
         <div><h3>Payroll Register</h3><p style="color:var(--text-muted);margin:.35rem 0 0;">${month} · ${records.length} active employees · Total net payroll: <strong>INR ${total.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></p></div>
         <button type="button" class="btn btn-primary" onclick="downloadSalaryPdf('${month}')">Download Register PDF</button>
       </div>
+      <input type="search" class="form-control table-search" placeholder="Search register by employee, ID, or role…" aria-label="Search payroll register" oninput="filterTableBodyRows('salary-register-table-body', this.value)" />
       <div style="overflow:auto;margin-top:1rem;">
         <table class="table"><thead><tr><th>Sr No</th><th>ID</th><th>Name</th><th>Role</th><th>Base Salary</th><th>Worked Days</th><th>Grace Used / Allowance</th><th>Charged Leaves</th><th>Overtime</th><th>Leave Deduction</th><th>Net Salary</th></tr></thead>
-        <tbody>${rows || '<tr><td colspan="11">No active employees found.</td></tr>'}</tbody></table>
+        <tbody id="salary-register-table-body">${rows || '<tr><td colspan="11">No active employees found.</td></tr>'}</tbody></table>
       </div>
       ${errors.length ? `<div style="margin-top:1rem;color:#b45309;"><strong>Employees needing attention:</strong> ${errors.map((item) => `#${item.employee_id}: ${escapeHtml(item.message)}`).join("; ")}</div>` : ""}
       <small style="color:var(--text-muted);display:block;margin-top:.75rem;">Any recorded work time counts as a worked day. Each scheduled day without recorded work counts as one absence; grace days are deducted before charged leave is shown as used / allowance. Overtime is informational and does not affect net pay under current payroll rules.</small>
@@ -758,29 +762,17 @@ function displaySalaryCard(data) {
   </div>
 `;
 
-  loadSalaryRecords();
+  loadSalaryRecords(data.month);
 }
-function renderSalaryRecords(records) {
+function renderSalaryRecords(records, selectedMonth) {
   const container = document.getElementById("salary-records-container");
   if (!container) return;
-
-  if (!records.length) {
-    container.innerHTML = `
-      <div class="card">
-        <h3>Salary Records</h3>
-        <p style="color:var(--text-muted);margin-top:.5rem;">
-          No salary records have been generated yet.
-        </p>
-      </div>
-    `;
-    return;
-  }
 
   const rows = records
     .map(
       (record) => `
       <!-- Main salary row -->
-      <tr>
+      <tr class="salary-record-main-row">
 
         <td>
           #${record.employee_id}
@@ -1012,10 +1004,19 @@ function renderSalaryRecords(records) {
             background:var(--bg-input);
             color:var(--text-main);
           "
-          onclick="loadSalaryRecords()"
+          onclick="refreshSalaryRecords()"
         >
           Refresh
         </button>
+      </div>
+
+      <div class="salary-record-controls">
+        <div class="salary-month-control" aria-label="Salary record month">
+          <button type="button" class="btn dashboard-period-btn" onclick="shiftSalaryRecordsMonth(-1)" aria-label="Previous month" title="Previous month">←</button>
+          <input type="month" id="salary-record-month" class="form-control" value="${selectedMonth}" aria-label="Select salary records month" onchange="loadSalaryRecords(this.value)">
+          <button type="button" class="btn dashboard-period-btn" onclick="shiftSalaryRecordsMonth(1)" aria-label="Next month" title="Next month">→</button>
+        </div>
+        <input type="search" id="salary-record-search" class="form-control table-search" placeholder="Search this month by employee, ID, or status…" aria-label="Search salary records" oninput="filterSalaryRecords(this.value)">
       </div>
 
       <div style="overflow-x:auto;margin-top:1rem;">
@@ -1034,13 +1035,15 @@ function renderSalaryRecords(records) {
             </tr>
           </thead>
 
-          <tbody>
-            ${rows}
+          <tbody id="salary-records-body">
+            ${rows || `<tr><td colspan="9" class="salary-records-empty">No salary records for ${selectedMonth}.</td></tr>`}
           </tbody>
         </table>
       </div>
     </div>
   `;
+  document.getElementById("salary-record-search").value = salaryRecordsSearchTerm;
+  filterSalaryRecords(salaryRecordsSearchTerm);
 }
 function showSalaryRecordDetails(salaryId) {
   const selected = document.getElementById(`salary-detail-${salaryId}`);
@@ -1071,20 +1074,69 @@ function showSalaryRecordDetails(salaryId) {
   selected.style.padding = "0 1rem";
 }
 
-async function loadSalaryRecords() {
+function shiftSalaryRecordsMonth(offset) {
+  const input = document.getElementById("salary-record-month");
+  if (!input) return;
+  const [year, month] = input.value.split("-").map(Number);
+  const next = new Date(year, month - 1 + offset, 1);
+  const selected = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}`;
+  input.value = selected;
+  loadSalaryRecords(selected);
+}
+
+function refreshSalaryRecords() {
+  const month = document.getElementById("salary-record-month")?.value;
+  loadSalaryRecords(month || undefined);
+}
+
+function filterSalaryRecords(query) {
+  salaryRecordsSearchTerm = String(query || "");
+  const tbody = document.getElementById("salary-records-body");
+  if (!tbody) return;
+  const term = salaryRecordsSearchTerm.trim().toLocaleLowerCase();
+  const rows = Array.from(tbody.querySelectorAll(".salary-record-main-row"));
+  let visibleCount = 0;
+  rows.forEach((row) => {
+    const matches = row.textContent.toLocaleLowerCase().includes(term);
+    row.hidden = !matches;
+    const details = row.nextElementSibling;
+    if (details?.classList.contains("salary-detail-row")) details.hidden = !matches;
+    if (matches) visibleCount += 1;
+  });
+  let emptyRow = document.getElementById("salary-records-no-results");
+  if (!emptyRow && rows.length) {
+    emptyRow = document.createElement("tr");
+    emptyRow.id = "salary-records-no-results";
+    emptyRow.innerHTML = '<td colspan="9" class="salary-records-empty">No matching salary records.</td>';
+    tbody.appendChild(emptyRow);
+  }
+  if (emptyRow) emptyRow.hidden = rows.length === 0 || visibleCount > 0 || !term;
+}
+
+async function loadSalaryRecords(month) {
   const container = document.getElementById("salary-records-container");
   if (!container) return;
+  const requestSequence = ++salaryRecordsRequestSequence;
 
   try {
-    const response = await fetch(`${API_BASE}/salary/records`);
+    const query = month ? `?month=${encodeURIComponent(month)}` : "";
+    const response = await fetch(`${API_BASE}/salary/records${query}`);
 
     if (!response.ok) {
       throw new Error("Failed to load salary records");
     }
 
     const payload = await response.json();
-    renderSalaryRecords(payload.records || []);
+    if (requestSequence !== salaryRecordsRequestSequence) return;
+    const records = payload.records || [];
+    const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
+    const selectedMonth = month || records[0]?.month || currentMonth;
+    renderSalaryRecords(
+      records.filter((record) => record.month === selectedMonth),
+      selectedMonth,
+    );
   } catch (error) {
+    if (requestSequence !== salaryRecordsRequestSequence) return;
     console.error(error);
     container.innerHTML = `
       <div class="card">
@@ -1123,7 +1175,7 @@ function saveEditedSalary(empId, month) {
         console.log(data.message);
       }
       fetchSalaryView(empId, month);
-      loadSalaryRecords();
+      loadSalaryRecords(month);
     });
 }
 

@@ -47,12 +47,22 @@ function renderBulkTable(employees) {
         `;
     tbody.appendChild(tr);
   });
+  filterBulkAttendance(document.getElementById("bulk-attendance-search")?.value || "");
+}
+
+function filterBulkAttendance(query) {
+  const tbody = document.getElementById("bulk-attendance-body");
+  if (!tbody) return;
+  const term = String(query || "").trim().toLocaleLowerCase();
+  tbody.querySelectorAll("tr").forEach((row) => {
+    row.hidden = !row.textContent.toLocaleLowerCase().includes(term);
+  });
 }
 
 function toggleAllBulkChecks(masterCheckbox) {
   const checks = document.querySelectorAll(".bulk-check");
   checks.forEach((chk) => {
-    if (!chk.disabled) {
+    if (!chk.disabled && !chk.closest("tr")?.hidden) {
       chk.checked = masterCheckbox.checked;
     }
   });

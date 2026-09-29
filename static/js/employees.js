@@ -3,6 +3,8 @@
  * Handles fetching, displaying, and adding employees.
  */
 
+let employeeDirectoryRecords = [];
+
 async function loadEmployees() {
   try {
     const response = await fetch(`${API_BASE}/employees`);
@@ -13,12 +15,15 @@ async function loadEmployees() {
 
     // ALL employees from backend
     const employees = await response.json();
+    employeeDirectoryRecords = employees;
 
     // -------------------------------------------------
     // EMPLOYEE DIRECTORY
     // Show ALL employees here
     // -------------------------------------------------
-    renderEmployeeTable(employees);
+    filterEmployeeDirectory(
+      document.getElementById("employee-directory-search")?.value || "",
+    );
 
     // -------------------------------------------------
     // ACTIVE EMPLOYEES
@@ -288,7 +293,15 @@ async function deleteEmployee(id, event) {
 
 function renderEmployeeTable(employees) {
   const tbody = document.getElementById("employee-table-body");
+  if (!tbody) return;
   tbody.innerHTML = "";
+
+  if (!employees.length) {
+    const term = document.getElementById("employee-directory-search")?.value.trim();
+    const message = term ? "No matching employees found." : "No employees found.";
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:1.5rem;">${message}</td></tr>`;
+    return;
+  }
 
   const currentUserRole = sessionStorage.getItem("role");
   const canModify = ["admin", "head"].includes(currentUserRole);
@@ -400,6 +413,15 @@ function renderEmployeeTable(employees) {
 
     tbody.appendChild(tr);
   });
+}
+
+function filterEmployeeDirectory(query) {
+  const term = String(query || "").trim().toLocaleLowerCase();
+  const filtered = employeeDirectoryRecords.filter((employee) =>
+    [employee.id, employee.name, employee.role, employee.phone, employee.address, employee.status]
+      .some((value) => String(value ?? "").toLocaleLowerCase().includes(term)),
+  );
+  renderEmployeeTable(filtered);
 }
 
 async function addEmployee(event) {

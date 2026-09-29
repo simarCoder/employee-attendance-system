@@ -1252,6 +1252,113 @@ input:checked + .slider:before {
   overflow-y: auto;
 }
 
+.individual-attendance-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.individual-attendance-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.individual-attendance-heading h3 {
+  margin: 0;
+}
+
+.individual-attendance-tools,
+.salary-record-controls,
+.salary-month-control {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.individual-attendance-tools {
+  justify-content: flex-end;
+}
+
+.salary-record-controls {
+  justify-content: space-between;
+  margin-top: 1rem;
+}
+
+.table-search {
+  width: min(100%, 340px);
+  margin: 0.85rem 0;
+}
+
+.individual-attendance-tools .table-search,
+.salary-record-controls .table-search {
+  margin: 0;
+}
+
+.salary-records-empty {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 1.5rem !important;
+}
+
+.table tbody tr[hidden],
+#salary-records-body tr[hidden],
+#employee-table-body tr[hidden],
+#profile-employee-list-body tr[hidden],
+#biometric-mapping-body tr[hidden],
+#attendance-table-body tr[hidden],
+#dashboard-attendance-body tr[hidden],
+#bulk-attendance-body tr[hidden] {
+  display: none !important;
+}
+
+.individual-attendance-caption {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  margin: 0.25rem 0 0;
+}
+
+.individual-month-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.individual-month-control .form-control {
+  min-width: 175px;
+}
+
+.individual-attendance-empty {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 2rem 1rem !important;
+}
+
+@media (max-width: 520px) {
+  .individual-attendance-tools,
+  .individual-month-control,
+  .salary-month-control {
+    width: 100%;
+  }
+
+  .individual-attendance-tools .table-search,
+  .salary-record-controls .table-search {
+    width: 100%;
+  }
+
+  .individual-month-control {
+    width: 100%;
+  }
+
+  .individual-month-control .form-control {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
 .dashboard-attendance-table-container.is-reloading #dashboard-attendance-body {
   opacity: 0.45;
   filter: blur(0.4px);

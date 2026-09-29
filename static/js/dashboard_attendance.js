@@ -40,23 +40,9 @@ function formatTime12Hour(timeStr) {
 }
 
 function formatDateDisplay(dateStr) {
-  if (!dateStr) return "-";
-
-  const parts = dateStr.split("-");
-
-  if (parts.length !== 3) {
-    return dateStr;
-  }
-
-  const [year, month, day] = parts;
-
-  const date = new Date(Number(year), Number(month) - 1, Number(day));
-
-  return date.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+  return window.formatDateDDMMYYYY
+    ? window.formatDateDDMMYYYY(dateStr)
+    : dateStr || "-";
 }
 
 function formatDuration(minutes) {
@@ -202,9 +188,36 @@ function renderAttendanceRecords(records) {
     tbody.appendChild(row);
   });
 
+  filterDashboardAttendance(
+    document.getElementById("dashboard-attendance-search")?.value || "",
+  );
+
   updateAttendanceSummary(dashboardAttendanceRecords);
 
   dashboardAttendanceLoading = false;
+}
+
+function filterDashboardAttendance(query) {
+  const tbody = document.getElementById("dashboard-attendance-body");
+  if (!tbody) return;
+  const term = String(query || "").trim().toLocaleLowerCase();
+  let visibleCount = 0;
+  let hasRecords = false;
+  tbody.querySelectorAll("tr").forEach((row) => {
+    if (row.cells.length === 1 && row.cells[0].colSpan > 1) return;
+    hasRecords = true;
+    const matches = row.textContent.toLocaleLowerCase().includes(term);
+    row.hidden = !matches;
+    if (matches) visibleCount += 1;
+  });
+  let emptyRow = document.getElementById("dashboard-attendance-no-results");
+  if (!emptyRow) {
+    emptyRow = document.createElement("tr");
+    emptyRow.id = "dashboard-attendance-no-results";
+    emptyRow.innerHTML = '<td colspan="9" style="text-align:center;color:var(--text-muted);">No matching attendance records.</td>';
+    tbody.appendChild(emptyRow);
+  }
+  emptyRow.hidden = !hasRecords || visibleCount > 0 || !term;
 }
 
 function updateAttendanceSummary(records) {

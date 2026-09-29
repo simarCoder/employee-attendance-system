@@ -285,6 +285,8 @@ h1{{font-size:23px;line-height:1.2;margin:9px 0 5px}} .sub{{color:#52647a;font-s
 button{{border:0;border-radius:8px;padding:10px 18px;font:600 12px 'Segoe UI',Arial;cursor:pointer}}
 .primary{{background:#1769c2;color:white}} .primary:hover{{background:#1257a3}}
 .secondary{{background:#e8edf4;color:#26384e}} button:disabled{{opacity:.55;cursor:default}}
+.fill.preparing{{width:35%;animation:slide 1.1s ease-in-out infinite alternate}}
+@keyframes slide{{from{{transform:translateX(-55%)}}to{{transform:translateX(190%)}}}}
 </style></head><body><main>
 <div class="eyebrow">OPERON &nbsp;/&nbsp; SOFTWARE UPDATE</div>
 <h1>A new version is ready</h1>
@@ -292,42 +294,67 @@ button{{border:0;border-radius:8px;padding:10px 18px;font:600 12px 'Segoe UI',Ar
 <section class="card"><strong>What’s new</strong><div class="notes" id="notes"></div></section>
 <div class="status" id="status">Would you like to install this update now?</div>
 <div class="track"><div class="fill" id="fill"></div></div>
-<div class="buttons"><button class="secondary" id="later" onclick="continueApp()">Later</button>
-<button class="primary" id="update" onclick="startUpdate()">Update now</button></div>
+<div class="buttons"><button class="secondary" id="later" onclick="continueApp()" disabled>Later</button>
+<button class="primary" id="update" onclick="startUpdate()" disabled>Update now</button></div>
 </main><script>
 const releaseVersion={version_json}, releaseNotes={notes_json};
 document.getElementById('version').textContent=releaseVersion;
 document.getElementById('notes').textContent=releaseNotes;
-let pollTimer=null, cancelled=false;
+let pollTimer=null, apiReady=false;
+const updateButton=document.getElementById('update');
+const laterButton=document.getElementById('later');
+const statusLabel=document.getElementById('status');
+const progressFill=document.getElementById('fill');
+function markApiReady(){{
+ apiReady=true; updateButton.disabled=false; laterButton.disabled=false;
+ statusLabel.textContent='Would you like to install this update now?';
+}}
+if(window.pywebview && window.pywebview.api) markApiReady();
+else window.addEventListener('pywebviewready',markApiReady,{{once:true}});
+function showApiError(error){{
+ if(pollTimer) clearInterval(pollTimer); pollTimer=null;
+ progressFill.classList.remove('preparing'); progressFill.style.width='0%';
+ statusLabel.textContent='The updater could not start: '+(error && error.message ? error.message : String(error));
+ updateButton.disabled=false; updateButton.textContent='Try again';
+ laterButton.disabled=false; laterButton.textContent='Open app'; laterButton.onclick=continueApp;
+}}
 async function startUpdate(){{
- document.getElementById('update').disabled=true;
- document.getElementById('later').textContent='Cancel';
- document.getElementById('later').onclick=cancelUpdate;
- await window.pywebview.api.start_update();
- pollTimer=setInterval(pollState,300); pollState();
+ if(!apiReady) return;
+ updateButton.disabled=true; laterButton.textContent='Cancel';
+ laterButton.onclick=cancelUpdate; statusLabel.textContent='Connecting to GitHub…';
+ progressFill.classList.add('preparing');
+ try{{
+  await window.pywebview.api.start_update();
+  progressFill.classList.remove('preparing');
+  pollTimer=setInterval(pollState,300); pollState();
+ }}catch(error){{showApiError(error);}}
 }}
 async function cancelUpdate(){{
- cancelled=true; document.getElementById('status').textContent='Cancelling download…';
- await window.pywebview.api.cancel_update();
- document.getElementById('later').textContent='Open app';
- document.getElementById('later').onclick=continueApp;
+ if(!apiReady) return;
+ statusLabel.textContent='Cancelling download…';
+ try{{await window.pywebview.api.cancel_update();}}
+ catch(error){{showApiError(error);return;}}
+ laterButton.textContent='Open app'; laterButton.onclick=continueApp;
 }}
 async function continueApp(){{
+ if(!apiReady) return;
  if(pollTimer) clearInterval(pollTimer);
- await window.pywebview.api.continue_to_app();
+ try{{await window.pywebview.api.continue_to_app();}}
+ catch(error){{showApiError(error);}}
 }}
 async function pollState(){{
- const s=await window.pywebview.api.get_state();
- document.getElementById('status').textContent=s.message;
- document.getElementById('fill').style.width=(s.percent||0)+'%';
+ let s;
+ try{{s=await window.pywebview.api.get_state();}}
+ catch(error){{showApiError(error);return;}}
+ statusLabel.textContent=s.message;
+ progressFill.style.width=(s.percent||0)+'%';
  if(s.status==='error'||s.status==='cancelled'){{
   clearInterval(pollTimer); pollTimer=null;
-  document.getElementById('update').disabled=false;
-  document.getElementById('update').textContent=s.status==='error'?'Try again':'Update now';
-  document.getElementById('later').textContent='Open app';
-  document.getElementById('later').onclick=continueApp;
+  updateButton.disabled=false;
+  updateButton.textContent=s.status==='error'?'Try again':'Update now';
+  laterButton.disabled=false; laterButton.textContent='Open app';
+  laterButton.onclick=continueApp;
  }}
 }}
-window.addEventListener('pywebviewready',()=>{{}});
 </script></body></html>"""
     return html, api

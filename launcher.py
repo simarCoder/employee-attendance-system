@@ -1,10 +1,12 @@
 import threading
 import time
+import sys
 
 import webview
 from werkzeug.serving import make_server
 
 from backend.app import app
+from updater import get_available_release, make_update_prompt
 
 
 HOST = "127.0.0.1"
@@ -50,6 +52,10 @@ def close_application():
 
 if __name__ == "__main__":
 
+    # Check published releases before opening the desktop application. The
+    # update prompt transitions into the app in the same WebView if deferred.
+    release = get_available_release() if getattr(sys, "frozen", False) else None
+
     # Start Flask in background
     flask_thread = threading.Thread(
         target=start_server,
@@ -61,20 +67,35 @@ if __name__ == "__main__":
     # Give Flask a moment to start
     time.sleep(1)
 
-    # Create desktop window
-    window = webview.create_window(
-        "HR Management System | Operon Solutions",
-        f"http://{HOST}:{PORT}/",
-        width=1400,
-        height=900,
-        min_size=(1000, 700),
-        resizable=True,
-    )
+    main_url = f"http://{HOST}:{PORT}/"
+    title = "HR Management System | Operon Solutions"
+    prompt_html, update_api = make_update_prompt(release, main_url) if release else (None, None)
 
-    webview.start(
-        func=lambda: window.maximize(),
-        debug=False,
-    )
+    if prompt_html:
+        window = webview.create_window(
+            "HR Management System Update",
+            html=prompt_html,
+            js_api=update_api,
+            width=560,
+            height=430,
+            resizable=False,
+        )
+        update_api.window = window
+        window.events.closing += update_api.on_window_closing
+        webview.start(debug=False)
+    else:
+        window = webview.create_window(
+            title,
+            main_url,
+            width=1400,
+            height=900,
+            min_size=(1000, 700),
+            resizable=True,
+        )
+        webview.start(
+            func=lambda: window.maximize(),
+            debug=False,
+        )
 
     close_application()
     

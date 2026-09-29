@@ -49,3 +49,35 @@ exe = EXE(
     console=False,
     icon="operon.ico",
 )
+
+# Build the replacement helper as a small side-by-side executable. Windows
+# cannot replace the main one-file executable while it is running.
+updater_analysis = Analysis(
+    ["updater_helper.py"],
+    pathex=["."],
+    binaries=[],
+    datas=[],
+    hiddenimports=[],
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=[],
+    noarchive=False,
+)
+
+updater_pyz = PYZ(updater_analysis.pure)
+
+updater_exe = EXE(
+    updater_pyz,
+    updater_analysis.scripts,
+    updater_analysis.binaries,
+    updater_analysis.datas,
+    [],
+    name="HR_Management_System_Updater",
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=False,
+    console=False,
+    icon="operon.ico",
+)

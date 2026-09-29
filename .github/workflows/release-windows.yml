@@ -1,0 +1,54 @@
+name: Build and publish Windows release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Verify release version
+        shell: pwsh
+        run: |
+          $tagVersion = "${{ github.ref_name }}".TrimStart("v")
+          $appVersion = python -c "from app_version import APP_VERSION; print(APP_VERSION)"
+          if ($tagVersion -ne $appVersion) {
+            throw "Release tag $tagVersion does not match app_version.py ($appVersion)."
+          }
+
+      - name: Install build requirements
+        run: python -m pip install -r requirements.txt
+
+      - name: Build application and updater helper
+        run: python -m PyInstaller --clean --noconfirm HR_Management_System.spec
+
+      - name: Package update payload
+        shell: pwsh
+        run: |
+          Compress-Archive `
+            -Path "dist/HR_Management_System.exe", "dist/HR_Management_System_Updater.exe" `
+            -DestinationPath "dist/HR_Management_System-win64.zip" `
+            -CompressionLevel Optimal
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          gh release create "${{ github.ref_name }}" `
+            "dist/HR_Management_System-win64.zip" `
+            --title "HR Management System ${{ github.ref_name }}" `
+            --generate-notes

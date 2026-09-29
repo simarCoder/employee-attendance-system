@@ -408,6 +408,8 @@ def check_out(employee_id, custom_time=None, target_date=None):
         FROM attendance
         WHERE employee_id = ? AND date = ?
     """, (employee_id, today))
+
+    record = cursor.fetchone()
     
     cursor.execute("""
         SELECT
@@ -436,8 +438,6 @@ def check_out(employee_id, custom_time=None, target_date=None):
             late_grace_minutes,
             overtime_enabled
         ) = employee_rules
-
-    record = cursor.fetchone()
 
     if not record:
         cursor.close()

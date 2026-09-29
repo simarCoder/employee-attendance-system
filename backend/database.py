@@ -240,6 +240,9 @@ def employee_db():
             employee_role TEXT,
             salary_type TEXT,
             monthly_salary_snapshot REAL,
+            gross_salary REAL DEFAULT 0,
+            salary_deduction REAL DEFAULT 0,
+            salary_after_holidays REAL DEFAULT 0,
             daily_hours REAL,
             working_days INTEGER,
 
@@ -273,6 +276,9 @@ def employee_db():
         "employee_role": "TEXT",
         "salary_type": "TEXT",
         "monthly_salary_snapshot": "REAL",
+        "gross_salary": "REAL DEFAULT 0",
+        "salary_deduction": "REAL DEFAULT 0",
+        "salary_after_holidays": "REAL DEFAULT 0",
         "daily_hours": "REAL",
         "working_days": "INTEGER",
         "expected_monthly_minutes": "REAL",
@@ -342,6 +348,21 @@ def employee_db():
             created_at = COALESCE(created_at, CURRENT_TIMESTAMP),
             updated_at = COALESCE(updated_at, CURRENT_TIMESTAMP)
         WHERE 1 = 1
+    """)
+
+    # Older rows stored the post-attendance amount in base_salary. Keep the
+    # assigned salary snapshot as base_salary after the payroll terminology fix.
+    cursor.execute("""
+        UPDATE salary_cal
+        SET base_salary = monthly_salary_snapshot,
+            gross_salary = CASE WHEN COALESCE(gross_salary, 0) = 0
+                THEN monthly_salary_snapshot ELSE gross_salary END,
+            salary_after_holidays = CASE WHEN COALESCE(salary_after_holidays, 0) = 0
+                THEN total_salary ELSE salary_after_holidays END,
+            salary_deduction = CASE WHEN COALESCE(salary_deduction, 0) = 0 THEN
+                MAX(0, COALESCE(monthly_salary_snapshot, 0) - COALESCE(total_salary, 0))
+                ELSE salary_deduction END
+        WHERE monthly_salary_snapshot IS NOT NULL
     """)
 
     # USERS

@@ -316,27 +316,43 @@ def generate_salary(employee_id, month, role=None):
         deducted_holidays = holiday_metrics["deducted_holidays"]
         paid_minutes = holiday_metrics["paid_minutes"]
 
-        if expected_monthly_minutes > 0:
+        if salary_type == "hourly":
+            hourly_rate = monthly_salary
+        elif expected_monthly_minutes > 0:
             hourly_rate = monthly_salary / (working_days * daily_hours)
         else:
             hourly_rate = 0.0
 
         hourly_rate_snapshot = round(hourly_rate, 2)
 
-        if expected_monthly_minutes > 0:
-            base_salary = (
+        if salary_type == "hourly":
+            gross_salary = (
+                hourly_rate
+                * expected_working_days_for_period
+                * daily_hours
+            )
+            salary_after_holidays = hourly_rate * paid_minutes / 60.0
+        elif expected_monthly_minutes > 0:
+            salary_after_holidays = (
                 monthly_salary
                 * paid_minutes
                 / expected_monthly_minutes
             )
+            gross_salary = monthly_salary * elapsed_fraction
         else:
-            base_salary = 0.0
+            salary_after_holidays = 0.0
+            gross_salary = 0.0
+
+        # Keep the employee's assigned amount as the base salary. The earned
+        # amount after attendance and leave adjustments is reported separately.
+        base_salary = monthly_salary
+        salary_deduction = max(0.0, gross_salary - salary_after_holidays)
 
         # Overtime is informational only. It never increases salary.
         overtime_pay = 0.0
 
         total_salary = round(
-            base_salary + overtime_pay,
+            salary_after_holidays + overtime_pay,
             2
         )
 
@@ -380,6 +396,9 @@ def generate_salary(employee_id, month, role=None):
                     employee_role = ?,
                     salary_type = ?,
                     monthly_salary_snapshot = ?,
+                    gross_salary = ?,
+                    salary_deduction = ?,
+                    salary_after_holidays = ?,
                     daily_hours = ?,
                     working_days = ?,
                     expected_monthly_minutes = ?,
@@ -404,6 +423,9 @@ def generate_salary(employee_id, month, role=None):
                 employee_role,
                 salary_type,
                 monthly_salary,
+                round(gross_salary, 2),
+                round(salary_deduction, 2),
+                round(salary_after_holidays, 2),
                 daily_hours,
                 working_days,
                 expected_monthly_minutes,
@@ -434,6 +456,9 @@ def generate_salary(employee_id, month, role=None):
                     employee_role,
                     salary_type,
                     monthly_salary_snapshot,
+                    gross_salary,
+                    salary_deduction,
+                    salary_after_holidays,
                     daily_hours,
                     working_days,
                     expected_monthly_minutes,
@@ -453,7 +478,7 @@ def generate_salary(employee_id, month, role=None):
                     created_at,
                     updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 employee_id,
                 month,
@@ -461,6 +486,9 @@ def generate_salary(employee_id, month, role=None):
                 employee_role,
                 salary_type,
                 monthly_salary,
+                round(gross_salary, 2),
+                round(salary_deduction, 2),
+                round(salary_after_holidays, 2),
                 daily_hours,
                 working_days,
                 expected_monthly_minutes,
@@ -503,6 +531,9 @@ def generate_salary(employee_id, month, role=None):
             "paid_minutes": paid_minutes,
             "hourly_rate": hourly_rate_snapshot,
             "base_salary": round(base_salary, 2),
+            "gross_salary": round(gross_salary, 2),
+            "salary_deduction": round(salary_deduction, 2),
+            "salary_after_holidays": round(salary_after_holidays, 2),
             "overtime_pay": round(overtime_pay, 2),
             "total_salary": total_salary,
             "locked": lock_value
@@ -526,6 +557,9 @@ def get_salary(employee_id, month):
             employee_role,
             salary_type,
             monthly_salary_snapshot,
+            gross_salary,
+            salary_deduction,
+            salary_after_holidays,
             daily_hours,
             working_days,
             expected_monthly_minutes,
@@ -564,6 +598,9 @@ def get_salary(employee_id, month):
         "employee_role",
         "salary_type",
         "monthly_salary",
+        "gross_salary",
+        "salary_deduction",
+        "salary_after_holidays",
         "daily_hours",
         "working_days",
         "expected_monthly_minutes",
@@ -602,6 +639,9 @@ def get_salary_records(employee_id=None, month=None):
             employee_role,
             salary_type,
             monthly_salary_snapshot,
+            gross_salary,
+            salary_deduction,
+            salary_after_holidays,
             daily_hours,
             working_days,
             expected_monthly_minutes,
@@ -650,6 +690,9 @@ def get_salary_records(employee_id=None, month=None):
         "employee_role",
         "salary_type",
         "monthly_salary",
+        "gross_salary",
+        "salary_deduction",
+        "salary_after_holidays",
         "daily_hours",
         "working_days",
         "expected_monthly_minutes",

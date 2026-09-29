@@ -12,6 +12,7 @@ from flask import (
     render_template,
     url_for,
     send_from_directory,
+    send_file,
     session,
     redirect,
 )
@@ -63,6 +64,7 @@ from backend.services.salary import (
     get_salary_records,
     update_salary_details
 )
+from backend.services.salary_pdf import build_salary_pdf
 
 # ---SETTINGS IMPORT---
 from backend.services.settings import (
@@ -760,6 +762,69 @@ def generate_salary_route():
         if "already generated" in str(e):
             return jsonify({"message": "Salary already generated", "status": "exists"}), 200
         return jsonify({"message": str(e), "status": "error"}), 400
+
+
+@app.route("/salary/register", methods=["POST"])
+def generate_salary_register_route():
+    data = request.json or {}
+    month = data.get("month")
+    if not month:
+        return jsonify({"message": "A payroll period is required."}), 400
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT employee_id FROM employees WHERE status = 'active' ORDER BY employee_id")
+        employee_ids = [row[0] for row in cursor.fetchall()]
+    finally:
+        cursor.close()
+        conn.close()
+
+    errors = []
+    for employee_id in employee_ids:
+        try:
+            saved_record = get_salary(employee_id, month)
+            if saved_record and saved_record.get("locked") == 1 and data.get("role") != "head":
+                # Finalized payroll remains unchanged for non-head users.
+                continue
+            generate_salary(employee_id, month, data.get("role"))
+        except Exception as exc:
+            errors.append({"employee_id": employee_id, "message": str(exc)})
+    active_ids = set(employee_ids)
+    records = [record for record in get_salary_records(month=month)
+               if record["employee_id"] in active_ids]
+    return jsonify({"success": True, "count": len(records), "records": records, "errors": errors})
+
+
+@app.route("/salary/pdf", methods=["GET"])
+def download_salary_pdf_route():
+    employee_id = request.args.get("employee_id", type=int)
+    month = request.args.get("month")
+    if not month:
+        return jsonify({"error": "month is required"}), 400
+    if employee_id is not None:
+        record = get_salary(employee_id, month)
+        if not record:
+            return jsonify({"error": "Salary not found. Generate the salary slip first."}), 404
+        records = [record]
+        employee = record
+        filename = f"salary-statement-{employee_id}-{month}.pdf"
+    else:
+        conn = get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT employee_id FROM employees WHERE status = 'active'")
+            active_ids = {row[0] for row in cursor.fetchall()}
+        finally:
+            cursor.close()
+            conn.close()
+        records = [record for record in get_salary_records(month=month)
+                   if record["employee_id"] in active_ids]
+        if not records:
+            return jsonify({"error": "No salary records found. Generate the payroll register first."}), 404
+        employee = None
+        filename = f"payroll-register-{month}.pdf"
+    pdf = build_salary_pdf(records, month, employee)
+    return send_file(pdf, mimetype="application/pdf", as_attachment=True, download_name=filename)
 
 @app.route("/salary/view", methods=["GET"])
 def get_salary_route():

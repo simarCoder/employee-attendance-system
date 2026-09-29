@@ -321,6 +321,13 @@ function populateDateSelectors() {
 // Listen for employee load to populate dropdown
 window.addEventListener("employeesLoaded", (e) => {
   populateEmployeeDropdown("salary-employee-select", e.detail);
+  const select = document.getElementById("salary-employee-select");
+  if (select) {
+    const allOption = document.createElement("option");
+    allOption.value = "all";
+    allOption.textContent = "All Active Employees — Payroll Register";
+    select.insertBefore(allOption, select.options[1] || null);
+  }
 });
 
 // Helper to construct YYYY-MM
@@ -340,6 +347,11 @@ async function generateSalary() {
   if (!empId || !monthStr) {
     if (window.showToast)
       showToast("Please select employee, month and year", "error");
+    return;
+  }
+
+  if (empId === "all") {
+    await generateSalaryRegister(monthStr, role);
     return;
   }
 
@@ -375,6 +387,87 @@ async function generateSalary() {
   }
 }
 
+async function generateSalaryRegister(month, role) {
+  const container = document.getElementById("salary-result-container");
+  container.innerHTML = '<div class="card">Preparing payroll register…</div>';
+  try {
+    const response = await fetch(`${API_BASE}/salary/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ month, role }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.message || "Could not generate the payroll register.");
+    renderSalaryRegister(result.records || [], month, result.errors || []);
+    if (window.showToast) {
+      const skipped = (result.errors || []).length;
+      showToast(skipped ? `Register ready; ${skipped} employee(s) need attention.` : "Payroll register generated.", skipped ? "error" : "success");
+    }
+    loadSalaryRecords();
+  } catch (error) {
+    container.innerHTML = `<div class="card">${error.message}</div>`;
+    if (window.showToast) showToast(error.message, "error");
+  }
+}
+
+function renderSalaryRegister(records, month, errors = []) {
+  const container = document.getElementById("salary-result-container");
+  const money = (value) => `INR ${Number(value || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const rows = records.map((row) => `
+    <tr>
+      <td>#${row.employee_id}</td><td>${escapeHtml(row.employee_name || "-")}</td><td>${escapeHtml(row.employee_role || "-")}</td>
+      <td>${money(row.base_salary)}</td><td>${(Number(row.actual_worked_minutes || 0) / Math.max(1, Number(row.daily_hours || 8) * 60)).toFixed(1)}</td><td>${formatDuration(row.actual_worked_minutes)}</td>
+      <td>${Number(row.grace_holidays || 0).toFixed(1)} / ${Number(row.grace_holidays_used || 0).toFixed(1)}</td><td>${Number(row.deducted_holidays || 0).toFixed(1)}</td>
+      <td>${formatDuration(row.overtime_minutes)}</td><td>${money(row.overtime_pay)}</td><td>${money(row.gross_salary)}</td><td>${money(row.salary_deduction)}</td><td>${money(row.salary_after_holidays)}</td><td><strong>${money(row.total_salary)}</strong></td>
+      <td><button type="button" class="btn" onclick="downloadSalaryPdf('${month}', ${row.employee_id})">PDF</button></td>
+    </tr>`).join("");
+  const total = records.reduce((sum, row) => sum + Number(row.total_salary || 0), 0);
+  container.innerHTML = `
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">
+        <div><h3>Payroll Register</h3><p style="color:var(--text-muted);margin:.35rem 0 0;">${month} · ${records.length} active employees · Total net payroll: <strong>INR ${total.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></p></div>
+        <button type="button" class="btn btn-primary" onclick="downloadSalaryPdf('${month}')">Download Register PDF</button>
+      </div>
+      <div style="overflow:auto;margin-top:1rem;">
+        <table class="table"><thead><tr><th>ID</th><th>Employee</th><th>Role</th><th>Assigned salary / rate</th><th>Worked days*</th><th>Worked time</th><th>Grace allowance / used</th><th>Charged leave</th><th>Overtime</th><th>OT pay</th><th>Gross for period</th><th>Leave deduction</th><th>After holidays</th><th>Net salary</th><th>Slip</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="15">No active employees found.</td></tr>'}</tbody></table>
+      </div>
+      ${errors.length ? `<div style="margin-top:1rem;color:#b45309;"><strong>Employees needing attention:</strong> ${errors.map((item) => `#${item.employee_id}: ${escapeHtml(item.message)}`).join("; ")}</div>` : ""}
+      <small style="color:var(--text-muted);display:block;margin-top:.75rem;">* Worked days are equivalent full days calculated from recorded work time. Overtime is informational and does not affect net pay under current payroll rules.</small>
+    </div>`;
+}
+
+async function downloadSelectedSalaryPdf() {
+  const employeeId = document.getElementById("salary-employee-select").value;
+  const month = getSelectedMonthStr();
+  if (!employeeId || !month) {
+    if (window.showToast) showToast("Choose an employee and payroll period first.", "error");
+    return;
+  }
+  await downloadSalaryPdf(month, employeeId === "all" ? null : employeeId);
+}
+
+async function downloadSalaryPdf(month, employeeId = null) {
+  const query = new URLSearchParams({ month });
+  if (employeeId !== null && employeeId !== undefined) query.set("employee_id", employeeId);
+  try {
+    const response = await fetch(`${API_BASE}/salary/pdf?${query}`);
+    if (!response.ok) {
+      const detail = await response.json().catch(() => ({}));
+      throw new Error(detail.error || "Could not download the PDF.");
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = employeeId ? `salary-statement-${employeeId}-${month}.pdf` : `payroll-register-${month}.pdf`;
+    link.click();
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    if (window.showToast) showToast(error.message, "error");
+  }
+}
+
 async function viewSalary() {
   const empId = document.getElementById("salary-employee-select").value;
   const monthStr = getSelectedMonthStr();
@@ -382,6 +475,18 @@ async function viewSalary() {
   if (!empId || !monthStr) {
     if (window.showToast)
       showToast("Please select employee, month and year", "error");
+    return;
+  }
+
+  if (empId === "all") {
+    try {
+      const response = await fetch(`${API_BASE}/salary/records?month=${encodeURIComponent(monthStr)}`);
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not load payroll records.");
+      renderSalaryRegister(result.records || [], monthStr);
+    } catch (error) {
+      if (window.showToast) showToast(error.message, "error");
+    }
     return;
   }
 
@@ -509,7 +614,7 @@ function displaySalaryCard(data) {
       </div>
 
       <div>
-        <label class="form-label">Base Salary</label>
+        <label class="form-label">${data.salary_type === "hourly" ? "Assigned Hourly Rate" : "Assigned Base Salary"}</label>
         <div class="value">
           ₹${Number(data.base_salary || 0).toFixed(2)}
         </div>
@@ -518,10 +623,7 @@ function displaySalaryCard(data) {
       <div>
         <label class="form-label">Salary Deduction</label>
         <div class="value">
-          ₹${Math.max(
-            0,
-            Number(data.monthly_salary || 0) - Number(data.base_salary || 0),
-          ).toFixed(2)}
+          ₹${Number(data.salary_deduction || 0).toFixed(2)}
         </div>
       </div>
 
@@ -653,8 +755,9 @@ function displaySalaryCard(data) {
           )
         "
       >
-        Generate Receipt / Print
+        Print Salary Statement
       </button>
+      <button type="button" class="btn btn-primary" onclick="downloadSalaryPdf('${data.month}', ${data.employee_id})">Download PDF</button>
 
     </div>
 
@@ -843,13 +946,9 @@ function renderSalaryRecords(records) {
                   ₹${Number(record.base_salary || 0).toFixed(2)}
                 </div>
 
-                <div>
-                  <strong>Salary Deduction:</strong>
-                  ₹${Math.max(
-                    0,
-                    Number(record.monthly_salary || 0) -
-                      Number(record.base_salary || 0),
-                  ).toFixed(2)}
+      <div>
+                  <strong>Leave Deduction:</strong>
+                  ₹${Number(record.salary_deduction || 0).toFixed(2)}
                 </div>
 
                 <div>
@@ -1083,10 +1182,7 @@ function renderSalaryReceipt(salary, employee = {}) {
       },
     );
   };
-  const deductions = Math.max(
-    0,
-    Number(salary.base_salary || 0) - Number(salary.total_salary || 0),
-  );
+  const deductions = Number(salary.salary_deduction || 0);
   const generatedAt = new Date().toLocaleString("en-IN", {
     dateStyle: "medium",
     timeStyle: "short",
@@ -1117,9 +1213,11 @@ function renderSalaryReceipt(salary, employee = {}) {
       <table class="salary-receipt-table">
         <thead><tr><th>Description</th><th>Amount</th></tr></thead>
         <tbody>
-          <tr><td>Base Salary</td><td>${money(salary.base_salary)}</td></tr>
+          <tr><td>${salary.salary_type === "hourly" ? "Assigned Hourly Rate" : "Assigned Base Salary"}</td><td>${money(salary.base_salary)}</td></tr>
+          <tr><td>Gross Salary for Period</td><td>${money(salary.gross_salary)}</td></tr>
           <tr><td>Overtime Pay</td><td>${money(salary.overtime_pay)}</td></tr>
-          <tr><td>Salary Deduction</td><td>- ${money(deductions)}</td></tr>
+          <tr><td>Leave Deduction</td><td>- ${money(deductions)}</td></tr>
+          <tr><td>Salary After Holidays</td><td>${money(salary.salary_after_holidays)}</td></tr>
         </tbody>
       </table>
 

@@ -19,6 +19,12 @@ datas += tmp[0]
 binaries += tmp[1]
 hiddenimports += tmp[2]
 
+# ReportLab uses several dynamically imported submodules for PDF output.
+tmp = collect_all("reportlab")
+datas += tmp[0]
+binaries += tmp[1]
+hiddenimports += tmp[2]
+
 
 a = Analysis(
     ["launcher.py"],

@@ -973,7 +973,7 @@
         <!-- 4. SALARY -->
         <section id="salary" class="section">
           <div class="content-header">
-            <h2>Salary Generation</h2>
+            <h2>Payroll &amp; Salary Statements</h2>
           </div>
           <div class="card" style="max-width: 600px">
             <div class="form-group">
@@ -981,6 +981,7 @@
               <select id="salary-employee-select" class="form-control">
                 <option>Loading...</option>
               </select>
+              <small style="color:var(--text-muted);">Choose All Employees to prepare the monthly payroll register.</small>
             </div>
             <div class="form-group">
               <label class="form-label">Select Period</label>
@@ -998,7 +999,7 @@
                 class="btn btn-primary"
                 style="flex: 1"
               >
-                Generate Slip
+                Generate Payroll
               </button>
               <button
                 type="button"
@@ -1011,7 +1012,12 @@
                   border: 1px solid var(--border);
                 "
               >
-                View Slip
+                View Payroll
+              </button>
+            </div>
+            <div style="display:flex;gap:1rem;margin-top:.75rem;">
+              <button type="button" onclick="downloadSelectedSalaryPdf()" class="btn" style="flex:1;background:var(--bg-input);color:var(--text-main);border:1px solid var(--border);">
+                Download PDF
               </button>
             </div>
           </div>

@@ -2,3 +2,4 @@ Flask
 cryptography
 pywebview
 pyinstaller
+reportlab

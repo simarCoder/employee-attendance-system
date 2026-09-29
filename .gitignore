@@ -73,3 +73,5 @@ Thumbs.db
 *.session_secret
 
 token_password
+
+*.tree.txt

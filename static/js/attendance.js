@@ -279,3 +279,28 @@ async function syncSecureye() {
 
 //   loadDashboardAttendance(today);
 // }
+
+function showAttendancePanel(panelName, button) {
+  document.querySelectorAll("#attendance .attendance-panel").forEach((panel) => {
+    panel.classList.toggle("active", panel.id === `attendance-panel-${panelName}`);
+  });
+  document.querySelectorAll("#attendance .attendance-nav-button").forEach((navButton) => {
+    const isActive = navButton === button;
+    navButton.classList.toggle("active", isActive);
+    navButton.setAttribute("aria-selected", String(isActive));
+  });
+  updateAttendanceGoTop();
+}
+
+function updateAttendanceGoTop() {
+  const attendance = document.getElementById("attendance");
+  const button = document.getElementById("attendance-go-top");
+  if (!attendance || !button) return;
+  button.classList.toggle(
+    "visible",
+    attendance.classList.contains("active") && window.scrollY > 300,
+  );
+}
+
+window.addEventListener("scroll", updateAttendanceGoTop, { passive: true });
+document.addEventListener("DOMContentLoaded", updateAttendanceGoTop);

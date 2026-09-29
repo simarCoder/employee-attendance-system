@@ -334,7 +334,8 @@ def get_employee_by_id(employee_id):
             late_grace_minutes,
             overtime_enabled,
             overtime_rate,
-            status
+            status,
+            working_weekdays
         FROM employees
         WHERE employee_id = ?
     """, (employee_id,))
@@ -441,9 +442,23 @@ def update_employee(
     overtime_rate = float(overtime_rate or 1)
     working_days = float(working_days or 26)
     grace_holidays = float(grace_holidays or 0)
-    working_weekdays = normalize_working_weekdays(
-        working_weekdays
-    )
+    if working_weekdays is None:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT working_weekdays FROM employees WHERE employee_id = ?",
+            (employee_id,),
+        )
+        existing_schedule = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        working_weekdays = (
+            existing_schedule[0]
+            if existing_schedule
+            else DEFAULT_WORKING_WEEKDAYS
+        )
+
+    working_weekdays = normalize_working_weekdays(working_weekdays)
 
     if working_days <= 0 or working_days > 31:
         raise ValueError("Working days must be between 1 and 31")

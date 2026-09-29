@@ -689,7 +689,8 @@ def get_employee_profile(employee_id):
     "late_grace_minutes": emp[13],
     "overtime_enabled": emp[14],
     "overtime_rate": emp[15],
-    "status": emp[16]
+    "status": emp[16],
+    "working_weekdays": emp[17]
 })
     
     

@@ -153,6 +153,59 @@ function initWorkingDaysPreview() {
   updateWorkingDaysPreview();
 }
 
+function updateEditWorkingDaysPreview() {
+  const countElement = document.getElementById("edit-emp-working-days-count");
+  const labelElement = document.getElementById("edit-emp-working-days-label");
+  const hiddenInput = document.getElementById("edit-emp-working-days");
+  if (!countElement || !labelElement || !hiddenInput) return;
+
+  const selectedDays = Array.from(
+    document.querySelectorAll("#edit-emp-working-weekdays input:checked"),
+  ).map((input) => Number(input.value));
+  const year = editWorkingDaysViewDate.getFullYear();
+  const month = editWorkingDaysViewDate.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  let total = 0;
+
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const mondayBasedWeekday = (new Date(year, month, day).getDay() + 6) % 7;
+    if (selectedDays.includes(mondayBasedWeekday)) total += 1;
+  }
+
+  labelElement.textContent = new Intl.DateTimeFormat("en-IN", {
+    month: "short",
+    year: "numeric",
+  }).format(editWorkingDaysViewDate);
+  countElement.textContent = `${total} working days`;
+  hiddenInput.value = String(total);
+}
+
+let editWorkingDaysViewDate = new Date();
+
+function initEditWorkingDaysPreview() {
+  const previous = document.getElementById("edit-emp-working-days-previous");
+  const next = document.getElementById("edit-emp-working-days-next");
+  const weekdays = document.querySelectorAll(
+    "#edit-emp-working-weekdays input",
+  );
+  if (!previous || !next || !weekdays.length) return;
+
+  previous.addEventListener("click", () => {
+    editWorkingDaysViewDate.setDate(1);
+    editWorkingDaysViewDate.setMonth(editWorkingDaysViewDate.getMonth() - 1);
+    updateEditWorkingDaysPreview();
+  });
+  next.addEventListener("click", () => {
+    editWorkingDaysViewDate.setDate(1);
+    editWorkingDaysViewDate.setMonth(editWorkingDaysViewDate.getMonth() + 1);
+    updateEditWorkingDaysPreview();
+  });
+  weekdays.forEach((input) =>
+    input.addEventListener("change", updateEditWorkingDaysPreview),
+  );
+  updateEditWorkingDaysPreview();
+}
+
 function deactivateEmployee(id, event) {
   if (event) event.stopPropagation();
 
@@ -473,6 +526,12 @@ async function editEmployee(id, event) {
     }
 
     const emp = await response.json();
+    const editWorkingWeekdays = String(
+      emp.working_weekdays ?? "0,1,2,3,4,5",
+    )
+      .split(",")
+      .map((day) => Number(day.trim()))
+      .filter((day) => Number.isInteger(day) && day >= 0 && day <= 6);
 
     const existingModal = document.getElementById("edit-employee-modal");
 
@@ -611,21 +670,6 @@ async function editEmployee(id, event) {
               <input id="edit-emp-daily-hours" type="hidden" value="${emp.daily_hours ?? ""}">
             </div>
             <div>
-                  <label class="form-label">Working Days</label>
-
-                  <input
-                      id="edit-emp-working-days"
-                      class="form-control"
-                      type="number"
-                      min="1"
-                      max="31"
-                      step="1"
-                      value="${emp.working_days ?? 26}"
-                      required
-                  >
-              </div>
-
-            <div>
               <label class="form-label">Grace Holidays / Month</label>
               <input
                 id="edit-emp-grace-holidays"
@@ -638,6 +682,26 @@ async function editEmployee(id, event) {
               >
             </div>
 
+          </div>
+
+          <div class="employee-week-field">
+            <span>Working Week</span>
+            <div id="edit-emp-working-weekdays" class="employee-week-days">
+              ${["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+                .map(
+                  (day, index) => `
+                    <label><input type="checkbox" value="${index}" ${editWorkingWeekdays.includes(index) ? "checked" : ""}> ${day}</label>
+                  `,
+                )
+                .join("")}
+              <div class="employee-working-days">
+                <button type="button" id="edit-emp-working-days-previous" aria-label="Previous month">←</button>
+                <span id="edit-emp-working-days-label"></span>
+                <strong id="edit-emp-working-days-count"></strong>
+                <button type="button" id="edit-emp-working-days-next" aria-label="Next month">→</button>
+              </div>
+            </div>
+            <input id="edit-emp-working-days" type="hidden" value="${emp.working_days ?? 26}" required>
           </div>
 
           <div
@@ -770,6 +834,9 @@ async function editEmployee(id, event) {
 
     document.body.appendChild(modal);
 
+    editWorkingDaysViewDate = new Date();
+    initEditWorkingDaysPreview();
+
     const updateEditDailyHours = () =>
       calculateScheduleDuration(
         "edit-emp-check-in",
@@ -840,6 +907,12 @@ async function editEmployee(id, event) {
           working_days: parseFloat(
             document.getElementById("edit-emp-working-days").value,
           ),
+
+          working_weekdays: Array.from(
+            document.querySelectorAll(
+              "#edit-emp-working-weekdays input[type='checkbox']:checked",
+            ),
+          ).map((checkbox) => Number(checkbox.value)),
 
           grace_holidays:
             parseFloat(

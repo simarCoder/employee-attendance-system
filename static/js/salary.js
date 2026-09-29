@@ -413,13 +413,12 @@ async function generateSalaryRegister(month, role) {
 function renderSalaryRegister(records, month, errors = []) {
   const container = document.getElementById("salary-result-container");
   const money = (value) => `INR ${Number(value || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  const rows = records.map((row) => `
+  const rows = records.map((row, index) => `
     <tr>
-      <td>#${row.employee_id}</td><td>${escapeHtml(row.employee_name || "-")}</td><td>${escapeHtml(row.employee_role || "-")}</td>
-      <td>${money(row.base_salary)}</td><td>${(Number(row.actual_worked_minutes || 0) / Math.max(1, Number(row.daily_hours || 8) * 60)).toFixed(1)}</td><td>${formatDuration(row.actual_worked_minutes)}</td>
-      <td>${Number(row.grace_holidays || 0).toFixed(1)} / ${Number(row.grace_holidays_used || 0).toFixed(1)}</td><td>${Number(row.deducted_holidays || 0).toFixed(1)}</td>
-      <td>${formatDuration(row.overtime_minutes)}</td><td>${money(row.overtime_pay)}</td><td>${money(row.gross_salary)}</td><td>${money(row.salary_deduction)}</td><td>${money(row.salary_after_holidays)}</td><td><strong>${money(row.total_salary)}</strong></td>
-      <td><button type="button" class="btn" onclick="downloadSalaryPdf('${month}', ${row.employee_id})">PDF</button></td>
+      <td>${index + 1}</td><td>${row.employee_id}</td><td>${escapeHtml(row.employee_name || "-")}</td><td>${escapeHtml(row.employee_role || "-")}</td>
+      <td>${money(row.base_salary)}</td><td>${Number(row.actual_worked_days || 0)}</td>
+      <td>${formatLeaveUnits(row.grace_holidays_used)} / ${formatLeaveUnits(row.grace_holidays)}</td><td>${formatLeaveUnits(row.deducted_holidays)}</td>
+      <td>${formatDuration(row.overtime_minutes)}</td><td>${money(row.salary_deduction)}</td><td><strong>${money(row.total_salary)}</strong></td>
     </tr>`).join("");
   const total = records.reduce((sum, row) => sum + Number(row.total_salary || 0), 0);
   container.innerHTML = `
@@ -429,11 +428,11 @@ function renderSalaryRegister(records, month, errors = []) {
         <button type="button" class="btn btn-primary" onclick="downloadSalaryPdf('${month}')">Download Register PDF</button>
       </div>
       <div style="overflow:auto;margin-top:1rem;">
-        <table class="table"><thead><tr><th>ID</th><th>Employee</th><th>Role</th><th>Assigned salary / rate</th><th>Worked days*</th><th>Worked time</th><th>Grace allowance / used</th><th>Charged leave</th><th>Overtime</th><th>OT pay</th><th>Gross for period</th><th>Leave deduction</th><th>After holidays</th><th>Net salary</th><th>Slip</th></tr></thead>
-        <tbody>${rows || '<tr><td colspan="15">No active employees found.</td></tr>'}</tbody></table>
+        <table class="table"><thead><tr><th>Sr No</th><th>ID</th><th>Name</th><th>Role</th><th>Base Salary</th><th>Worked Days</th><th>Grace Used / Allowance</th><th>Charged Leaves</th><th>Overtime</th><th>Leave Deduction</th><th>Net Salary</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="11">No active employees found.</td></tr>'}</tbody></table>
       </div>
       ${errors.length ? `<div style="margin-top:1rem;color:#b45309;"><strong>Employees needing attention:</strong> ${errors.map((item) => `#${item.employee_id}: ${escapeHtml(item.message)}`).join("; ")}</div>` : ""}
-      <small style="color:var(--text-muted);display:block;margin-top:.75rem;">* Worked days are equivalent full days calculated from recorded work time. Overtime is informational and does not affect net pay under current payroll rules.</small>
+      <small style="color:var(--text-muted);display:block;margin-top:.75rem;">Any recorded work time counts as a worked day. Each scheduled day without recorded work counts as one absence; grace days are deducted before charged leave is shown as used / allowance. Overtime is informational and does not affect net pay under current payroll rules.</small>
     </div>`;
 }
 
@@ -447,25 +446,15 @@ async function downloadSelectedSalaryPdf() {
   await downloadSalaryPdf(month, employeeId === "all" ? null : employeeId);
 }
 
-async function downloadSalaryPdf(month, employeeId = null) {
+function downloadSalaryPdf(month, employeeId = null) {
   const query = new URLSearchParams({ month });
-  if (employeeId !== null && employeeId !== undefined) query.set("employee_id", employeeId);
-  try {
-    const response = await fetch(`${API_BASE}/salary/pdf?${query}`);
-    if (!response.ok) {
-      const detail = await response.json().catch(() => ({}));
-      throw new Error(detail.error || "Could not download the PDF.");
-    }
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = employeeId ? `salary-statement-${employeeId}-${month}.pdf` : `payroll-register-${month}.pdf`;
-    link.click();
-    URL.revokeObjectURL(url);
-  } catch (error) {
-    if (window.showToast) showToast(error.message, "error");
+  if (employeeId !== null && employeeId !== undefined) {
+    query.set("employee_id", employeeId);
   }
+
+  // Navigate directly to Flask's attachment response. PyWebView's native
+  // download handler opens a Save dialog when ALLOW_DOWNLOADS is enabled.
+  window.location.assign(`${API_BASE}/salary/pdf?${query}`);
 }
 
 async function viewSalary() {
@@ -546,6 +535,11 @@ function formatDuration(minutes) {
   }
 
   return `${hours}h ${mins}m`;
+}
+
+function formatLeaveUnits(value) {
+  const units = Number(value || 0);
+  return String(units);
 }
 
 function displaySalaryCard(data) {
@@ -1230,8 +1224,8 @@ function renderSalaryReceipt(salary, employee = {}) {
         <tbody>
           <tr><td>Working Days</td><td>${salary.working_days ?? "-"}</td></tr>
           <tr><td>Worked Time</td><td>${formatDuration(salary.actual_worked_minutes)}</td></tr>
-          <tr><td>Deducted Holidays</td><td>${Number(salary.deducted_holidays || 0).toFixed(2)}</td></tr>
-          <tr><td>Grace Holidays Used</td><td>${Number(salary.grace_holidays_used || 0).toFixed(2)}</td></tr>
+          <tr><td>Charged Leave</td><td>${formatLeaveUnits(salary.deducted_holidays)}</td></tr>
+          <tr><td>Grace Leave Used / Allowance</td><td>${formatLeaveUnits(salary.grace_holidays_used)} / ${formatLeaveUnits(salary.grace_holidays)}</td></tr>
         </tbody>
       </table>
 

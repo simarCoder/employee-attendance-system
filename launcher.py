@@ -12,6 +12,10 @@ from updater import get_available_release, make_update_prompt
 HOST = "127.0.0.1"
 PORT = 5000
 
+# Let PyWebView's native backend handle Flask attachment responses (PDFs) and
+# show its normal Save dialog instead of relying on browser blob downloads.
+webview.settings["ALLOW_DOWNLOADS"] = True
+
 
 class FlaskServer:
     def __init__(self, flask_app, host, port):

@@ -670,13 +670,13 @@ async function editEmployee(id, event) {
               <input id="edit-emp-daily-hours" type="hidden" value="${emp.daily_hours ?? ""}">
             </div>
             <div>
-              <label class="form-label">Grace Holidays / Month</label>
+              <label class="form-label">Grace Days / Month</label>
               <input
                 id="edit-emp-grace-holidays"
                 class="form-control"
                 type="number"
                 min="0"
-                step="0.5"
+                step="1"
                 value="${emp.grace_holidays ?? 0}"
                 required
               >

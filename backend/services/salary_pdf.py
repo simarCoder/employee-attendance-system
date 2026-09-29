@@ -2,27 +2,29 @@ from io import BytesIO
 from xml.sax.saxutils import escape
 
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER, TA_RIGHT
+from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import mm
-from reportlab.platypus import (
-    Paragraph,
-    SimpleDocTemplate,
-    Spacer,
-    Table,
-    TableStyle,
-)
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 
-NAVY = colors.HexColor("#17324D")
-BLUE = colors.HexColor("#2674B8")
-PALE_BLUE = colors.HexColor("#EAF2F9")
-MUTED = colors.HexColor("#66788A")
+INK = colors.HexColor("#243447")
+ACCENT = colors.HexColor("#526579")
+PALE = colors.HexColor("#F2F4F6")
+RULE = colors.HexColor("#D9DEE4")
+MUTED = colors.HexColor("#687582")
 
 
 def _money(value):
     return f"INR {float(value or 0):,.2f}"
+
+
+def _leave_units(value):
+    value = float(value or 0)
+    if value.is_integer():
+        return str(int(value))
+    return str(value)
 
 
 def _month_label(month):
@@ -33,54 +35,64 @@ def _month_label(month):
         return month or ""
 
 
+def _styles():
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(
+        name="PayrollBrand", parent=styles["Normal"], fontName="Helvetica-Bold",
+        fontSize=8.5, leading=11, textColor=ACCENT, alignment=TA_CENTER,
+    ))
+    styles.add(ParagraphStyle(
+        name="PayrollTitle", parent=styles["Title"], fontName="Helvetica-Bold",
+        fontSize=18, leading=22, textColor=INK, alignment=TA_CENTER,
+        spaceAfter=4,
+    ))
+    styles.add(ParagraphStyle(
+        name="PayrollSubtitle", parent=styles["Normal"], fontSize=9,
+        textColor=MUTED, alignment=TA_CENTER, leading=13,
+    ))
+    styles.add(ParagraphStyle(
+        name="PayrollHeader", parent=styles["Normal"], fontName="Helvetica-Bold",
+        fontSize=8, leading=9.5, textColor=colors.white,
+    ))
+    styles.add(ParagraphStyle(
+        name="PayrollCell", parent=styles["BodyText"], fontName="Helvetica",
+        fontSize=8, leading=10, textColor=INK,
+    ))
+    return styles
+
+
+def _report_header(title, month, styles):
+    return [
+        Paragraph("OPERON SOLUTIONS  |  HR MANAGEMENT SYSTEM", styles["PayrollBrand"]),
+        Spacer(1, 3 * mm),
+        Paragraph(title, styles["PayrollTitle"]),
+        Paragraph(_month_label(month), styles["PayrollSubtitle"]),
+        Spacer(1, 8 * mm),
+    ]
+
+
 def build_salary_pdf(records, month, employee=None):
     """Build a printable individual salary statement or payroll register."""
     output = BytesIO()
     is_register = employee is None
-    pagesize = landscape(A4) if is_register else A4
+    styles = _styles()
     doc = SimpleDocTemplate(
         output,
-        pagesize=pagesize,
-        rightMargin=12 * mm,
-        leftMargin=12 * mm,
-        topMargin=13 * mm,
-        bottomMargin=13 * mm,
+        pagesize=landscape(A4) if is_register else A4,
+        rightMargin=10 * mm,
+        leftMargin=10 * mm,
+        topMargin=12 * mm,
+        bottomMargin=12 * mm,
         title=f"Salary {'Register' if is_register else 'Statement'} - {month}",
         author="Operon Solutions HR Management System",
     )
-    styles = getSampleStyleSheet()
-    styles.add(ParagraphStyle(
-        name="Brand", parent=styles["Normal"], fontName="Helvetica-Bold",
-        fontSize=9, leading=12, textColor=BLUE, alignment=TA_CENTER,
-    ))
-    styles.add(ParagraphStyle(
-        name="ReportTitle", parent=styles["Title"], fontName="Helvetica-Bold",
-        fontSize=19, leading=23, textColor=NAVY, alignment=TA_CENTER,
-        spaceAfter=4,
-    ))
-    styles.add(ParagraphStyle(
-        name="Subtitle", parent=styles["Normal"], fontSize=9,
-        textColor=MUTED, alignment=TA_CENTER, leading=13,
-    ))
-    styles.add(ParagraphStyle(
-        name="RegisterHeader", parent=styles["Normal"], fontName="Helvetica-Bold",
-        fontSize=6.5, leading=7.5, textColor=colors.white,
-    ))
-
-    story = [
-        Paragraph("OPERON SOLUTIONS  |  HR MANAGEMENT SYSTEM", styles["Brand"]),
-        Spacer(1, 3 * mm),
-        Paragraph("Payroll Register" if is_register else "Salary Statement", styles["ReportTitle"]),
-        Paragraph(_month_label(month), styles["Subtitle"]),
-        Spacer(1, 8 * mm),
-    ]
+    story = _report_header("Payroll Register" if is_register else "Salary Statement", month, styles)
 
     if not is_register:
         record = records[0]
-        employee_name = escape(str(record.get("employee_name") or ""))
         story.append(Paragraph(
-            f"<b>Employee:</b> {employee_name} &nbsp;&nbsp; "
-            f"<b>ID:</b> #{record.get('employee_id', '')} &nbsp;&nbsp; "
+            f"<b>Employee:</b> {escape(str(record.get('employee_name') or '-'))} &nbsp;&nbsp; "
+            f"<b>ID:</b> {record.get('employee_id', '')} &nbsp;&nbsp; "
             f"<b>Role:</b> {escape(str(record.get('employee_role') or '-'))} &nbsp;&nbsp; "
             f"<b>Status:</b> {'Finalized' if record.get('locked') else 'Draft'}",
             styles["Normal"],
@@ -98,16 +110,15 @@ def build_salary_pdf(records, month, employee=None):
         ]
         table = Table(rows, colWidths=[98 * mm, 70 * mm], hAlign="LEFT")
         table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), NAVY),
+            ("BACKGROUND", (0, 0), (-1, 0), INK),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
             ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
             ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
             ("ALIGN", (1, 1), (1, -1), "RIGHT"),
-            ("BACKGROUND", (0, 1), (-1, -1), colors.white),
-            ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#D6E0E9")),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, PALE_BLUE]),
+            ("GRID", (0, 0), (-1, -1), 0.4, RULE),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, PALE]),
             ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
-            ("TEXTCOLOR", (0, -1), (-1, -1), NAVY),
+            ("TEXTCOLOR", (0, -1), (-1, -1), INK),
             ("TOPPADDING", (0, 0), (-1, -1), 8),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
         ]))
@@ -115,74 +126,77 @@ def build_salary_pdf(records, month, employee=None):
         detail_rows = [
             ["Attendance summary", "Value", "Leave summary", "Value"],
             ["Scheduled work days", str(record.get("working_days", "-")),
-             "Grace leave allowance", f"{float(record.get('grace_holidays') or 0):.2f} days"],
-            ["Worked days (equivalent)", f"{float(record.get('actual_worked_minutes') or 0) / max(1, float(record.get('daily_hours') or 8) * 60):.2f}",
-             "Grace leave used", f"{float(record.get('grace_holidays_used') or 0):.2f} days"],
+             "Grace used / allowance", f"{_leave_units(record.get('grace_holidays_used'))} / {_leave_units(record.get('grace_holidays'))} days"],
+            ["Worked days", str(int(record.get("actual_worked_days") or 0)),
+             "Charged leave", f"{_leave_units(record.get('deducted_holidays'))} days"],
             ["Worked hours", f"{float(record.get('actual_worked_minutes') or 0) / 60:.2f}",
-             "Chargeable leave", f"{float(record.get('deducted_holidays') or 0):.2f} days"],
-            ["Overtime", f"{float(record.get('overtime_minutes') or 0) / 60:.2f} hours",
              "Salary type", str(record.get("salary_type") or "-").title()],
+            ["Overtime", f"{float(record.get('overtime_minutes') or 0) / 60:.2f} hours", "", ""],
         ]
         detail = Table(detail_rows, colWidths=[43 * mm, 36 * mm, 43 * mm, 46 * mm])
         detail.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), PALE_BLUE),
-            ("TEXTCOLOR", (0, 0), (-1, 0), NAVY),
+            ("BACKGROUND", (0, 0), (-1, 0), PALE),
+            ("TEXTCOLOR", (0, 0), (-1, 0), INK),
             ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#D6E0E9")),
+            ("GRID", (0, 0), (-1, -1), 0.4, RULE),
             ("FONTSIZE", (0, 0), (-1, -1), 8),
             ("TOPPADDING", (0, 0), (-1, -1), 6),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
         ]))
         story.append(detail)
     else:
-        headers = ["ID", "Employee", "Role", "Assigned salary / rate", "Worked days*", "Worked hours", "Grace allowance / used", "Charged leave", "OT hours", "OT pay", "Gross for period", "Leave deduction", "After holidays", "Net salary"]
-        data = [[Paragraph(escape(header), styles["RegisterHeader"]) for header in headers]]
-        for row in records:
-            daily_minutes = max(1.0, float(row.get("daily_hours") or 8) * 60)
+        headers = [
+            "Sr No", "ID", "Name", "Role", "Base Salary", "Worked Days",
+            "Grace Used / Allowance", "Charged Leaves", "Overtime",
+            "Leave Deduction", "Net Salary",
+        ]
+        data = [[Paragraph(escape(label), styles["PayrollHeader"]) for label in headers]]
+        for serial, record in enumerate(records, start=1):
             data.append([
-                f"#{row.get('employee_id', '')}",
-                Paragraph(escape(str(row.get("employee_name") or "-")), styles["BodyText"]),
-                escape(str(row.get("employee_role") or "-")),
-                _money(row.get("base_salary")),
-                f"{float(row.get('actual_worked_minutes') or 0) / daily_minutes:.1f}",
-                f"{float(row.get('actual_worked_minutes') or 0) / 60:.1f} h",
-                f"{float(row.get('grace_holidays') or 0):.1f} / {float(row.get('grace_holidays_used') or 0):.1f}",
-                f"{float(row.get('deducted_holidays') or 0):.1f}",
-                f"{float(row.get('overtime_minutes') or 0) / 60:.1f} h",
-                _money(row.get("overtime_pay")),
-                _money(row.get("gross_salary")),
-                _money(row.get("salary_deduction")),
-                _money(row.get("salary_after_holidays")),
-                _money(row.get("total_salary")),
+                str(serial),
+                str(record.get("employee_id", "")),
+                Paragraph(escape(str(record.get("employee_name") or "-")), styles["PayrollCell"]),
+                Paragraph(escape(str(record.get("employee_role") or "-")), styles["PayrollCell"]),
+                _money(record.get("base_salary")),
+                str(int(record.get("actual_worked_days") or 0)),
+                f"{_leave_units(record.get('grace_holidays_used'))} / {_leave_units(record.get('grace_holidays'))}",
+                _leave_units(record.get("deducted_holidays")),
+                f"{float(record.get('overtime_minutes') or 0) / 60:.1f} h",
+                _money(record.get("salary_deduction")),
+                _money(record.get("total_salary")),
             ])
-        total_net = sum(float(row.get("total_salary") or 0) for row in records)
-        data.append(["", "TOTAL", "", "", "", "", "", "", "", "", "", "", "", _money(total_net)])
-        widths = [10, 34, 16, 21, 14, 15, 21, 15, 16, 19, 21, 20, 21, 22]
-        table = Table(data, colWidths=[w * mm for w in widths], repeatRows=1, hAlign="LEFT")
+        total_net = sum(float(record.get("total_salary") or 0) for record in records)
+        data.append(["", "", "TOTAL", "", "", "", "", "", "", "", _money(total_net)])
+
+        # Landscape A4 provides enough width to keep every field distinct and readable.
+        widths = [12, 14, 39, 25, 31, 20, 30, 23, 20, 31, 32]
+        table = Table(data, colWidths=[width * mm for width in widths], repeatRows=1, hAlign="LEFT")
         table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), NAVY),
+            ("BACKGROUND", (0, 0), (-1, 0), INK),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("FONTSIZE", (0, 0), (-1, -1), 7),
-            ("LEADING", (0, 0), (-1, -1), 9),
-            ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#D6E0E9")),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -2), [colors.white, PALE_BLUE]),
-            ("BACKGROUND", (0, -1), (-1, -1), PALE_BLUE),
+            ("GRID", (0, 0), (-1, -1), 0.35, RULE),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -2), [colors.white, PALE]),
+            ("BACKGROUND", (0, -1), (-1, -1), PALE),
             ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
-            ("TEXTCOLOR", (0, -1), (-1, -1), NAVY),
-            ("ALIGN", (3, 1), (-1, -1), "RIGHT"),
+            ("TEXTCOLOR", (0, -1), (-1, -1), INK),
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
+            ("ALIGN", (0, 1), (1, -1), "CENTER"),
+            ("ALIGN", (4, 1), (-1, -1), "RIGHT"),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("TOPPADDING", (0, 0), (-1, -1), 6),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ("LEFTPADDING", (0, 0), (-1, -1), 6),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+            ("TOPPADDING", (0, 0), (-1, -1), 9),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 9),
         ]))
         story.append(table)
-        story.append(Spacer(1, 3 * mm))
-        story.append(Paragraph(
-            "* Worked days are equivalent full days calculated from recorded work time. "
-            "Overtime is informational and does not affect net salary under current payroll rules. "
-            f"Employees included: {len(records)}.",
-            styles["Subtitle"],
-        ))
+        story.append(Spacer(1, 4 * mm))
+        # story.append(Paragraph(
+        #     "Any recorded work time counts as a worked day. Each scheduled day without recorded work is one absence; grace days are deducted before charged leave is shown. "
+        #     "Grace leave is shown as used / allowance. "
+        #     "Overtime is informational and does not affect net salary under current payroll rules. "
+        #     f"Employees included: {len(records)}.",
+        #     styles["PayrollSubtitle"],
+        # ))
 
     doc.build(story)
     output.seek(0)

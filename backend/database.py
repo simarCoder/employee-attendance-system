@@ -248,6 +248,7 @@ def employee_db():
 
             expected_monthly_minutes REAL,
             actual_worked_minutes INTEGER,
+            actual_worked_days INTEGER DEFAULT 0,
             total_hours REAL,
             overtime_minutes INTEGER DEFAULT 0,
             grace_holidays_snapshot REAL DEFAULT 0,
@@ -283,6 +284,7 @@ def employee_db():
         "working_days": "INTEGER",
         "expected_monthly_minutes": "REAL",
         "actual_worked_minutes": "INTEGER",
+        "actual_worked_days": "INTEGER DEFAULT 0",
         "overtime_minutes": "INTEGER DEFAULT 0",
         "grace_holidays_snapshot": "REAL DEFAULT 0",
         "absence_days": "REAL DEFAULT 0",
@@ -297,12 +299,25 @@ def employee_db():
 
     cursor.execute("PRAGMA table_info(salary_cal)")
     existing_salary_columns = {row[1] for row in cursor.fetchall()}
+    migrate_worked_day_counts = "actual_worked_days" not in existing_salary_columns
 
     for column_name, column_definition in salary_columns.items():
         if column_name not in existing_salary_columns:
             cursor.execute(
                 f"ALTER TABLE salary_cal ADD COLUMN {column_name} {column_definition}"
             )
+
+    if migrate_worked_day_counts:
+        cursor.execute("""
+            UPDATE salary_cal
+            SET actual_worked_days = (
+                SELECT COUNT(DISTINCT a.date)
+                FROM attendance a
+                WHERE a.employee_id = salary_cal.employee_id
+                  AND a.date LIKE salary_cal.month || '-%'
+                  AND COALESCE(a.worked_minutes, 0) > 0
+            )
+        """)
 
     cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_salary_cal_employee_month

@@ -22,40 +22,39 @@ def load_salary_module():
     return module, database
 
 
-def test_three_half_days_equal_1_5_holidays():
+def test_any_recorded_work_counts_as_a_worked_day():
     salary, _ = load_salary_module()
     dates = [date(2026, 8, 3) + timedelta(days=i) for i in range(5)]
     attendance = {
         dates[0].isoformat(): 240,
         dates[1].isoformat(): 240,
         dates[2].isoformat(): 240,
-        dates[3].isoformat(): 480,
-        dates[4].isoformat(): 480,
     }
 
     result = salary.calculate_holiday_deduction(dates, attendance, 480, 0)
 
-    assert result["absence_days"] == 1.5
-    assert result["deducted_holidays"] == 1.5
+    assert result["actual_worked_days"] == 3
+    assert result["absence_days"] == 2
+    assert result["deducted_holidays"] == 2
 
 
-def test_one_full_holiday_plus_two_half_days_equal_2():
+def test_grace_days_are_subtracted_from_full_day_absences():
     salary, _ = load_salary_module()
     dates = [date(2026, 8, 3) + timedelta(days=i) for i in range(5)]
     attendance = {
-        dates[1].isoformat(): 240,
         dates[2].isoformat(): 240,
-        dates[3].isoformat(): 480,
-        dates[4].isoformat(): 480,
+        dates[3].isoformat(): 240,
+        dates[4].isoformat(): 240,
     }
 
-    result = salary.calculate_holiday_deduction(dates, attendance, 480, 0)
+    result = salary.calculate_holiday_deduction(dates, attendance, 480, 1)
 
     assert result["absence_days"] == 2.0
-    assert result["deducted_holidays"] == 2.0
+    assert result["grace_holidays_used"] == 1.0
+    assert result["deducted_holidays"] == 1.0
 
 
-def test_grace_holidays_are_applied_before_deduction():
+def test_grace_days_cover_absence_before_any_leave_is_charged():
     salary, _ = load_salary_module()
     dates = [date(2026, 8, 3) + timedelta(days=i) for i in range(5)]
     attendance = {
@@ -67,27 +66,24 @@ def test_grace_holidays_are_applied_before_deduction():
 
     result = salary.calculate_holiday_deduction(dates, attendance, 480, 2)
 
-    assert result["absence_days"] == 2.0
-    assert result["grace_holidays_used"] == 2.0
+    assert result["absence_days"] == 1.0
+    assert result["grace_holidays_used"] == 1.0
     assert result["deducted_holidays"] == 0.0
     assert result["paid_minutes"] == 2400
 
 
-def test_excess_holidays_are_deducted_after_grace():
+def test_excess_absences_are_charged_after_the_grace_allowance():
     salary, _ = load_salary_module()
     dates = [date(2026, 8, 3) + timedelta(days=i) for i in range(5)]
     attendance = {
-        dates[1].isoformat(): 240,
-        dates[2].isoformat(): 240,
-        dates[3].isoformat(): 240,
-        dates[4].isoformat(): 480,
+        dates[4].isoformat(): 240,
     }
 
     result = salary.calculate_holiday_deduction(dates, attendance, 480, 2)
 
-    assert result["absence_days"] == 2.5
+    assert result["absence_days"] == 4.0
     assert result["grace_holidays_used"] == 2.0
-    assert result["deducted_holidays"] == 0.5
+    assert result["deducted_holidays"] == 2.0
 
 
 def test_full_integration_salary_uses_grace_holidays():
@@ -115,14 +111,14 @@ def test_full_integration_salary_uses_grace_holidays():
             employee_id INTEGER PRIMARY KEY,
             name TEXT, role TEXT, monthly_salary REAL, daily_hours REAL,
             overtime_enabled INTEGER, overtime_rate REAL, salary_type TEXT,
-            grace_holidays REAL
+            grace_holidays REAL, working_weekdays TEXT
         )"""
     )
     cur.execute(
         """CREATE TABLE attendance(
             attendance_id INTEGER PRIMARY KEY AUTOINCREMENT,
             employee_id INTEGER, date TEXT,
-            worked_minutes INTEGER, overtime_minutes INTEGER
+            worked_minutes INTEGER, overtime_minutes INTEGER, check_out TEXT
         )"""
     )
     cur.execute(
@@ -130,9 +126,10 @@ def test_full_integration_salary_uses_grace_holidays():
             salary_id INTEGER PRIMARY KEY AUTOINCREMENT,
             employee_id INTEGER, month TEXT, employee_name TEXT,
             employee_role TEXT, salary_type TEXT,
-            monthly_salary_snapshot REAL, daily_hours REAL,
+            monthly_salary_snapshot REAL, gross_salary REAL, salary_deduction REAL,
+            salary_after_holidays REAL, daily_hours REAL,
             working_days INTEGER, expected_monthly_minutes REAL,
-            actual_worked_minutes INTEGER, total_hours REAL,
+            actual_worked_minutes INTEGER, actual_worked_days INTEGER, total_hours REAL,
             overtime_minutes INTEGER,
             grace_holidays_snapshot REAL, absence_days REAL,
             grace_holidays_used REAL, deducted_holidays REAL,
@@ -142,12 +139,12 @@ def test_full_integration_salary_uses_grace_holidays():
         )"""
     )
     cur.execute(
-        "INSERT INTO employees VALUES (1,'Test','Staff',26000,8,0,1,'monthly',2)"
+        "INSERT INTO employees VALUES (1,'Test','Staff',26000,8,0,1,'monthly',2,'0,1,2,3,4,5')"
     )
     conn.commit()
     conn.close()
 
-    # One full holiday + two half-days, with exactly two grace holidays.
+    # One absent day is fully covered by the two-day grace allowance.
     working = [
         date(2026, 8, d)
         for d in range(1, 32)
@@ -160,8 +157,8 @@ def test_full_integration_salary_uses_grace_holidays():
             continue
         minutes = 240 if index in (1, 2) else 480
         cur.execute(
-            "INSERT INTO attendance(employee_id,date,worked_minutes,overtime_minutes)"
-            " VALUES (1,?,?,0)",
+            "INSERT INTO attendance(employee_id,date,worked_minutes,overtime_minutes,check_out)"
+            " VALUES (1,?,?,0,'17:00:00')",
             (current_date.isoformat(), minutes),
         )
     conn.commit()
@@ -170,8 +167,9 @@ def test_full_integration_salary_uses_grace_holidays():
     result = salary.generate_salary(1, "2026-08")
 
     assert result["working_days"] == 26
-    assert result["absence_days"] == 2.0
-    assert result["grace_holidays_used"] == 2.0
+    assert result["actual_worked_days"] == 25
+    assert result["absence_days"] == 1.0
+    assert result["grace_holidays_used"] == 1.0
     assert result["deducted_holidays"] == 0.0
     assert result["total_salary"] == 26000.0
 

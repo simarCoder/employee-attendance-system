@@ -1,6 +1,34 @@
 from backend.database import get_connection
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import calendar
+from decimal import Decimal, ROUND_HALF_UP
+
+
+def _money(value):
+    return float(Decimal(str(value or 0)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+
+
+def _parse_working_weekdays(value):
+    try:
+        weekdays = {
+            int(item.strip())
+            for item in str(value or "0,1,2,3,4,5").split(",")
+            if item.strip()
+        }
+        weekdays = {day for day in weekdays if 0 <= day <= 6}
+    except (TypeError, ValueError):
+        weekdays = set()
+    return weekdays or {0, 1, 2, 3, 4, 5}
+
+
+def _scheduled_dates(start, end, weekdays):
+    if end < start:
+        return []
+    return [
+        date.fromordinal(ordinal)
+        for ordinal in range(start.toordinal(), end.toordinal() + 1)
+        if date.fromordinal(ordinal).weekday() in weekdays
+    ]
 
 
 # def get_working_days_for_month(cursor, year, month):
@@ -73,82 +101,51 @@ import calendar
 
 
 def calculate_holiday_deduction(
-    expected_working_days,
-    actual_worked_minutes,
+    expected_working_dates,
+    attendance_by_date,
     daily_minutes,
     grace_holidays
 ):
+    """Count a scheduled date as worked when it has any recorded work time.
+
+    Short shifts still count as worked days. Only a scheduled date without
+    recorded work is an absence; whole-day grace allowance is deducted from
+    those absences before calculating charged leave.
     """
-    Calculate absence/holiday units using the employee's
-    configured monthly working days.
+    expected_working_dates = list(expected_working_dates or [])
+    attendance_by_date = attendance_by_date or {}
+    daily_minutes = max(Decimal("0"), Decimal(str(daily_minutes or 0)))
 
-    Full missing day = 1 holiday.
-    Half-day worked = 0.5 holiday.
-    Three half-days = 1.5 holidays.
-    One full absence + two half-days = 2 holidays.
-    """
+    grace_holidays = max(Decimal("0"), Decimal(str(grace_holidays or 0)))
+    if grace_holidays != grace_holidays.to_integral_value():
+        raise ValueError("Grace holidays must use whole-day increments")
 
-    expected_working_days = max(
-        0.0,
-        float(expected_working_days or 0)
-    )
+    worked_days = 0
+    for scheduled_date in expected_working_dates:
+        date_key = (
+            scheduled_date.isoformat()
+            if hasattr(scheduled_date, "isoformat")
+            else str(scheduled_date)
+        )
+        worked_minutes = Decimal(str(attendance_by_date.get(date_key, 0) or 0))
+        if worked_minutes > 0:
+            worked_days += 1
 
-    actual_worked_minutes = max(
-        0.0,
-        float(actual_worked_minutes or 0)
-    )
-
-    daily_minutes = max(
-        0.0,
-        float(daily_minutes or 0)
-    )
-
-    grace_holidays = max(
-        0.0,
-        float(grace_holidays or 0)
-    )
-
-    if daily_minutes <= 0:
-        return {
-            "absence_days": 0.0,
-            "grace_holidays_used": 0.0,
-            "deducted_holidays": 0.0,
-            "paid_minutes": 0.0,
-        }
-
-    worked_days = actual_worked_minutes / daily_minutes
-
-    # Never allow attendance to exceed the expected working days.
-    worked_days = min(
-        expected_working_days,
-        worked_days
-    )
-
-    absence_days = max(
-        0.0,
-        expected_working_days - worked_days
-    )
-
-    grace_holidays_used = min(
-        grace_holidays,
-        absence_days
-    )
-
-    deducted_holidays = max(
-        0.0,
-        absence_days - grace_holidays_used
-    )
-
+    expected_working_days = len(expected_working_dates)
+    absence_days = expected_working_days - worked_days
+    grace_holidays_used = min(int(grace_holidays), absence_days)
+    deducted_holidays = absence_days - grace_holidays_used
     paid_minutes = max(
-        0.0,
-        (expected_working_days - deducted_holidays) * daily_minutes
+        Decimal("0"),
+        Decimal(expected_working_days - deducted_holidays) * daily_minutes,
     )
 
     return {
-        "absence_days": round(absence_days, 4),
-        "grace_holidays_used": round(grace_holidays_used, 4),
-        "deducted_holidays": round(deducted_holidays, 4),
-        "paid_minutes": round(paid_minutes, 4),
+        "absence_days": absence_days,
+        "actual_worked_days": worked_days,
+        "grace_holidays_used": grace_holidays_used,
+        "deducted_holidays": deducted_holidays,
+        "paid_minutes": round(float(paid_minutes), 4),
     }
 
 def calculate_overtime_pay(
@@ -202,7 +199,7 @@ def generate_salary(employee_id, month, role=None):
                 overtime_rate,
                 salary_type,
                 COALESCE(grace_holidays, 0),
-                working_days
+                working_weekdays
             FROM employees
             WHERE employee_id = ?
         """, (employee_id,))
@@ -221,7 +218,7 @@ def generate_salary(employee_id, month, role=None):
             overtime_rate,
             salary_type,
             grace_holidays,
-            working_days
+            working_weekdays
         ) = employee
 
         monthly_salary = float(monthly_salary or 0)
@@ -231,31 +228,32 @@ def generate_salary(employee_id, month, role=None):
         salary_type = salary_type or "monthly"
         grace_holidays = max(0.0, float(grace_holidays or 0))
         
-        working_days = float(working_days or 0)
-
-        if working_days <= 0 or working_days > 31:
-            raise Exception("Employee working days must be between 1 and 31")
-
         try:
             year, month_num = map(int, month.split("-"))
+            if month_num < 1 or month_num > 12:
+                raise ValueError
         except ValueError:
             raise Exception("Month must be in YYYY-MM format")
 
-        # working_days = get_working_days_for_month(
-        #     cursor,
-        #     year,
-        #     month_num
-        # )
-
-        expected_monthly_minutes = (
-            working_days * daily_hours * 60
+        weekdays = _parse_working_weekdays(working_weekdays)
+        days_in_month = calendar.monthrange(year, month_num)[1]
+        month_start = date(year, month_num, 1)
+        month_end = date(year, month_num, days_in_month)
+        full_month_working_dates = _scheduled_dates(
+            month_start, month_end, weekdays
         )
+        working_days = len(full_month_working_dates)
+        if working_days == 0:
+            raise Exception("Employee has no scheduled working dates in this month")
+
+        expected_monthly_minutes = working_days * daily_hours * 60.0
 
         cursor.execute("""
             SELECT
                 date,
                 COALESCE(worked_minutes, 0),
-                COALESCE(overtime_minutes, 0)
+                COALESCE(overtime_minutes, 0),
+                check_out
             FROM attendance
             WHERE employee_id = ?
               AND date LIKE ?
@@ -273,88 +271,82 @@ def generate_salary(employee_id, month, role=None):
             sum(int(row[2] or 0) for row in attendance_rows)
         )
 
-        days_in_month = calendar.monthrange(year, month_num)[1]
-
-        month_start = date(year, month_num, 1)
-        month_end = date(year, month_num, days_in_month)
-
         today = date.today()
-
-        # ---------------------------------------------------------
-        # DETERMINE EXPECTED WORKING DAYS FOR SALARY CALCULATION
-        # ---------------------------------------------------------
+        attendance_by_date = {}
+        for attendance_date, worked_minutes, overtime_for_date, check_out in attendance_rows:
+            attendance_by_date[attendance_date] = int(worked_minutes or 0)
 
         if month_start > today:
-            elapsed_fraction = 0.0
-
+            period_end = month_start - timedelta(days=1)
         elif month_end <= today:
-            # Completed month
-            elapsed_fraction = 1.0
-
+            period_end = month_end
         else:
-            # Current month
-            elapsed_days = (today - month_start).days + 1
-            elapsed_fraction = elapsed_days / days_in_month
+            # Do not assess today's shift until it has been checked out.
+            today_row = next(
+                (row for row in attendance_rows if row[0] == today.isoformat()),
+                None,
+            )
+            period_end = today if today_row and today_row[3] else today - timedelta(days=1)
 
-        expected_working_days_for_period = (
-            working_days * elapsed_fraction
+        period_working_dates = _scheduled_dates(
+            month_start, min(period_end, month_end), weekdays
         )
-
-        # ---------------------------------------------------------
-        # HOLIDAY / ABSENCE CALCULATION
-        # ---------------------------------------------------------
+        expected_working_days_for_period = len(period_working_dates)
 
         holiday_metrics = calculate_holiday_deduction(
-            expected_working_days=expected_working_days_for_period,
-            actual_worked_minutes=actual_worked_minutes,
+            expected_working_dates=period_working_dates,
+            attendance_by_date=attendance_by_date,
             daily_minutes=daily_hours * 60.0,
             grace_holidays=grace_holidays,
         )
 
         absence_days = holiday_metrics["absence_days"]
+        actual_worked_days = holiday_metrics["actual_worked_days"]
         grace_holidays_used = holiday_metrics["grace_holidays_used"]
         deducted_holidays = holiday_metrics["deducted_holidays"]
         paid_minutes = holiday_metrics["paid_minutes"]
 
         if salary_type == "hourly":
             hourly_rate = monthly_salary
-        elif expected_monthly_minutes > 0:
-            hourly_rate = monthly_salary / (working_days * daily_hours)
-        else:
-            hourly_rate = 0.0
-
-        hourly_rate_snapshot = round(hourly_rate, 2)
-
-        if salary_type == "hourly":
-            gross_salary = (
-                hourly_rate
+            gross_amount = (
+                Decimal(str(hourly_rate))
+                * Decimal(str(daily_hours))
                 * expected_working_days_for_period
-                * daily_hours
             )
-            salary_after_holidays = hourly_rate * paid_minutes / 60.0
-        elif expected_monthly_minutes > 0:
-            salary_after_holidays = (
-                monthly_salary
-                * paid_minutes
-                / expected_monthly_minutes
+            deduction_amount = (
+                Decimal(str(hourly_rate))
+                * Decimal(str(daily_hours))
+                * Decimal(str(deducted_holidays))
             )
-            gross_salary = monthly_salary * elapsed_fraction
         else:
-            salary_after_holidays = 0.0
-            gross_salary = 0.0
+            hourly_rate = (
+                monthly_salary / (working_days * daily_hours)
+                if daily_hours > 0 else 0.0
+            )
+            # A fixed monthly salary is paid in full. Attendance affects it
+            # only through chargeable full-day absences below.
+            gross_amount = Decimal(str(monthly_salary))
+            deduction_amount = (
+                Decimal(str(monthly_salary))
+                * Decimal(str(deducted_holidays))
+                / working_days
+            )
 
-        # Keep the employee's assigned amount as the base salary. The earned
-        # amount after attendance and leave adjustments is reported separately.
+        hourly_rate_snapshot = _money(hourly_rate)
+        gross_salary = _money(gross_amount)
+        salary_deduction = _money(deduction_amount)
+        salary_after_holidays = _money(
+            Decimal(str(gross_salary)) - Decimal(str(salary_deduction))
+        )
+
+        # Keep the assigned salary or hourly rate as the base amount. Pay after
+        # attendance deductions is reported independently above.
         base_salary = monthly_salary
-        salary_deduction = max(0.0, gross_salary - salary_after_holidays)
 
         # Overtime is informational only. It never increases salary.
         overtime_pay = 0.0
 
-        total_salary = round(
-            salary_after_holidays + overtime_pay,
-            2
-        )
+        total_salary = _money(Decimal(str(salary_after_holidays)) + Decimal(str(overtime_pay)))
 
         last_day = calendar.monthrange(year, month_num)[1]
         last_date = datetime(
@@ -403,6 +395,7 @@ def generate_salary(employee_id, month, role=None):
                     working_days = ?,
                     expected_monthly_minutes = ?,
                     actual_worked_minutes = ?,
+                    actual_worked_days = ?,
                     total_hours = ?,
                     overtime_minutes = ?,
                     grace_holidays_snapshot = ?,
@@ -430,6 +423,7 @@ def generate_salary(employee_id, month, role=None):
                 working_days,
                 expected_monthly_minutes,
                 actual_worked_minutes,
+                actual_worked_days,
                 total_hours,
                 overtime_minutes,
                 grace_holidays,
@@ -463,6 +457,7 @@ def generate_salary(employee_id, month, role=None):
                     working_days,
                     expected_monthly_minutes,
                     actual_worked_minutes,
+                    actual_worked_days,
                     total_hours,
                     overtime_minutes,
                     grace_holidays_snapshot,
@@ -478,7 +473,7 @@ def generate_salary(employee_id, month, role=None):
                     created_at,
                     updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 employee_id,
                 month,
@@ -493,6 +488,7 @@ def generate_salary(employee_id, month, role=None):
                 working_days,
                 expected_monthly_minutes,
                 actual_worked_minutes,
+                actual_worked_days,
                 total_hours,
                 overtime_minutes,
                 grace_holidays,
@@ -522,6 +518,7 @@ def generate_salary(employee_id, month, role=None):
             "working_days": working_days,
             "expected_monthly_minutes": expected_monthly_minutes,
             "actual_worked_minutes": actual_worked_minutes,
+            "actual_worked_days": actual_worked_days,
             "total_hours": total_hours,
             "overtime_minutes": overtime_minutes,
             "grace_holidays": grace_holidays,
@@ -564,6 +561,7 @@ def get_salary(employee_id, month):
             working_days,
             expected_monthly_minutes,
             actual_worked_minutes,
+            actual_worked_days,
             total_hours,
             overtime_minutes,
             grace_holidays_snapshot,
@@ -605,6 +603,7 @@ def get_salary(employee_id, month):
         "working_days",
         "expected_monthly_minutes",
         "actual_worked_minutes",
+        "actual_worked_days",
         "total_hours",
         "overtime_minutes",
         "grace_holidays",
@@ -646,6 +645,7 @@ def get_salary_records(employee_id=None, month=None):
             working_days,
             expected_monthly_minutes,
             actual_worked_minutes,
+            actual_worked_days,
             total_hours,
             overtime_minutes,
             grace_holidays_snapshot,
@@ -697,6 +697,7 @@ def get_salary_records(employee_id=None, month=None):
         "working_days",
         "expected_monthly_minutes",
         "actual_worked_minutes",
+        "actual_worked_days",
         "total_hours",
         "overtime_minutes",
         "grace_holidays",

@@ -114,7 +114,7 @@ function loadEmployeeProfile(employeeId) {
               <div class="profile-field"><span>Late Grace</span><strong>${emp.late_grace_minutes ?? 0} min</strong></div>
               <div class="profile-field"><span>Overtime</span><strong>${yesNo(emp.overtime_enabled)}</strong></div>
               <div class="profile-field"><span>OT Rate</span><strong>${Number(emp.overtime_rate || 0).toFixed(2)}×</strong></div>
-              <div class="profile-field"><span>Grace Holidays</span><strong>${Number(emp.grace_holidays || 0).toFixed(2)}</strong></div>
+              <div class="profile-field"><span>Grace Days</span><strong>${Number(emp.grace_holidays || 0)}</strong></div>
             </div>
           </div>
         </div>

@@ -221,6 +221,8 @@ def add_employee(
 
     if grace_holidays < 0:
         raise ValueError("Grace holidays cannot be negative")
+    if not grace_holidays.is_integer():
+        raise ValueError("Grace holidays must use whole-day increments")
     
     conn = get_connection()
     cursor = conn.cursor()
@@ -465,6 +467,8 @@ def update_employee(
 
     if grace_holidays < 0:
         raise ValueError("Grace holidays cannot be negative")
+    if not grace_holidays.is_integer():
+        raise ValueError("Grace holidays must use whole-day increments")
 
     if salary_type not in ("monthly", "hourly"):
         raise ValueError("Invalid salary type")

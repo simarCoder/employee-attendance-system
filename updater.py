@@ -149,6 +149,7 @@ class UpdatePromptApi:
             "status": "prompt",
             "message": "Would you like to install this update now?",
             "percent": 0,
+            "indeterminate": False,
         }
         self.staging_dir = None
         self.handed_off = False
@@ -164,7 +165,12 @@ class UpdatePromptApi:
                 return self.state.copy()
             self.cancelled = threading.Event()
             self.staging_dir = None
-            self.state.update(status="downloading", message="Preparing secure download…")
+            self.state.update(
+                status="downloading",
+                message="Preparing secure download…",
+                percent=0,
+                indeterminate=True,
+            )
 
         def worker():
             try:
@@ -174,7 +180,12 @@ class UpdatePromptApi:
                     self._on_progress,
                     self.cancelled,
                 )
-                self._set_state(status="ready", message="Verified. Installing update…", percent=100)
+                self._set_state(
+                    status="ready",
+                    message="Download verified. Preparing installation…",
+                    percent=100,
+                    indeterminate=False,
+                )
             except Exception as error:
                 if self.cancelled.is_set():
                     self._set_state(status="cancelled", message="Download cancelled.")
@@ -191,18 +202,28 @@ class UpdatePromptApi:
             if total
             else f"Downloaded {downloaded // (1024 * 1024)} MB…"
         )
-        self._set_state(message=message, percent=percent)
+        self._set_state(
+            message=message,
+            percent=percent,
+            indeterminate=not bool(total),
+        )
 
     def cancel_update(self):
         self.cancelled.set()
         return {"status": "cancelling"}
 
     def on_window_closing(self):
-        self.cancelled.set()
+        if not self.handoff_started and not self.handed_off:
+            self.cancelled.set()
 
     def continue_to_app(self):
         if self.cancelled.is_set() and self.staging_dir:
-            shutil.rmtree(self.staging_dir, ignore_errors=True)
+            threading.Thread(
+                target=shutil.rmtree,
+                args=(self.staging_dir,),
+                kwargs={"ignore_errors": True},
+                daemon=True,
+            ).start()
         self.window.load_url(self.main_url)
         self.window.resize(1400, 900)
         self.window.maximize()
@@ -216,40 +237,49 @@ class UpdatePromptApi:
                 self.handoff_started = True
 
         if should_handoff:
-            try:
-                helper = os.path.join(self.install_dir, UPDATER_EXECUTABLE)
-                runner = os.path.join(
-                    tempfile.gettempdir(), f"hrms-updater-{os.getpid()}.exe"
-                )
-                shutil.copy2(helper, runner)
-                subprocess.Popen(
-                    [
-                        runner,
-                        "--parent-pid",
-                        str(os.getpid()),
-                        "--install-dir",
-                        self.install_dir,
-                        "--staging-dir",
-                        self.staging_dir,
-                        "--app-executable",
-                        os.path.basename(self.current_executable),
-                        "--helper-executable",
-                        UPDATER_EXECUTABLE,
-                    ],
-                    close_fds=True,
-                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-                )
-                self.handed_off = True
-                self._set_state(status="handed_off", message="Restarting with the new version…")
-                self.window.destroy()
-            except Exception as error:
-                if self.staging_dir:
-                    shutil.rmtree(self.staging_dir, ignore_errors=True)
-                self.handoff_started = False
-                self._set_state(status="error", message=str(error))
+            # Keep filesystem work and process launch off the WebView bridge
+            # thread so polling the state can never stall the dialog.
+            threading.Thread(target=self._handoff_update, daemon=True).start()
 
         with self.lock:
             return self.state.copy()
+
+    def _handoff_update(self):
+        try:
+            helper = os.path.join(self.install_dir, UPDATER_EXECUTABLE)
+            runner = os.path.join(
+                tempfile.gettempdir(), f"hrms-updater-{os.getpid()}.exe"
+            )
+            shutil.copy2(helper, runner)
+            subprocess.Popen(
+                [
+                    runner,
+                    "--parent-pid",
+                    str(os.getpid()),
+                    "--install-dir",
+                    self.install_dir,
+                    "--staging-dir",
+                    self.staging_dir,
+                    "--app-executable",
+                    os.path.basename(self.current_executable),
+                    "--helper-executable",
+                    UPDATER_EXECUTABLE,
+                ],
+                close_fds=True,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            )
+            self.handed_off = True
+            self._set_state(
+                status="handed_off",
+                message="Restarting with the new version…",
+            )
+            if self.window:
+                self.window.destroy()
+        except Exception as error:
+            if self.staging_dir:
+                shutil.rmtree(self.staging_dir, ignore_errors=True)
+            self.handoff_started = False
+            self._set_state(status="error", message=str(error))
 
 
 def make_update_prompt(release, main_url):
@@ -274,18 +304,18 @@ def make_update_prompt(release, main_url):
     html = f"""<!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-*{{box-sizing:border-box}} body{{margin:0;background:#f4f7fb;color:#132238;font-family:'Segoe UI',Arial,sans-serif}}
-main{{padding:25px 29px 22px}} .eyebrow{{color:#54708f;font-size:10px;font-weight:700;letter-spacing:1.4px}}
-h1{{font-size:23px;line-height:1.2;margin:9px 0 5px}} .sub{{color:#52647a;font-size:13px}}
-.card{{margin-top:18px;padding:14px 16px;background:white;border:1px solid #e2e9f2;border-radius:12px;height:126px;overflow:auto}}
-.card strong{{font-size:12px}} .notes{{margin-top:8px;color:#52647a;font-size:12px;line-height:1.5;white-space:pre-wrap}}
-.status{{margin:15px 0 8px;color:#52647a;font-size:11px;min-height:16px}}
-.track{{height:7px;background:#e2e9f2;border-radius:99px;overflow:hidden}} .fill{{width:0;height:100%;background:#2878d0;border-radius:99px;transition:width .2s}}
+*{{box-sizing:border-box}} html{{background:#030712}} body{{margin:0;background:#030712;color:#f9fafb;font-family:'Segoe UI',Arial,sans-serif;opacity:0;transition:opacity .16s ease}}
+html.ready body{{opacity:1}} main{{padding:25px 29px 22px}} .eyebrow{{color:#a5b4fc;font-size:10px;font-weight:700;letter-spacing:1.4px}}
+h1{{font-size:23px;line-height:1.2;margin:9px 0 5px;color:#f9fafb}} .sub{{color:#9ca3af;font-size:13px}}
+.card{{margin-top:18px;padding:14px 16px;background:#111827;border:1px solid #263244;border-radius:12px;height:126px;overflow:auto}}
+.card strong{{font-size:12px;color:#f9fafb}} .notes{{margin-top:8px;color:#cbd5e1;font-size:12px;line-height:1.5;white-space:pre-wrap}}
+.status{{margin:15px 0 8px;color:#cbd5e1;font-size:11px;min-height:16px}}
+.track{{height:7px;background:#1f2937;border-radius:99px;overflow:hidden}} .fill{{width:0;height:100%;background:#818cf8;border-radius:99px;transition:width .2s}}
 .buttons{{display:flex;justify-content:flex-end;gap:9px;margin-top:17px}}
-button{{border:0;border-radius:8px;padding:10px 18px;font:600 12px 'Segoe UI',Arial;cursor:pointer}}
-.primary{{background:#1769c2;color:white}} .primary:hover{{background:#1257a3}}
-.secondary{{background:#e8edf4;color:#26384e}} button:disabled{{opacity:.55;cursor:default}}
-.fill.preparing{{width:35%;animation:slide 1.1s ease-in-out infinite alternate}}
+button{{border:0;border-radius:8px;padding:10px 18px;font:600 12px 'Segoe UI',Arial;cursor:pointer;transition:background .15s ease,opacity .15s ease}}
+.primary{{background:#6366f1;color:white}} .primary:hover{{background:#4f46e5}}
+.secondary{{background:#1f2937;color:#e5e7eb}} .secondary:hover{{background:#374151}} button:disabled{{opacity:.48;cursor:default}}
+.fill.indeterminate{{width:35%;animation:slide 1.1s ease-in-out infinite alternate}}
 @keyframes slide{{from{{transform:translateX(-55%)}}to{{transform:translateX(190%)}}}}
 </style></head><body><main>
 <div class="eyebrow">OPERON &nbsp;/&nbsp; SOFTWARE UPDATE</div>
@@ -300,32 +330,36 @@ button{{border:0;border-radius:8px;padding:10px 18px;font:600 12px 'Segoe UI',Ar
 const releaseVersion={version_json}, releaseNotes={notes_json};
 document.getElementById('version').textContent=releaseVersion;
 document.getElementById('notes').textContent=releaseNotes;
-let pollTimer=null, apiReady=false;
+let pollTimer=null, apiReady=false, uiReady=false, updateStarted=false;
 const updateButton=document.getElementById('update');
 const laterButton=document.getElementById('later');
 const statusLabel=document.getElementById('status');
 const progressFill=document.getElementById('fill');
-function markApiReady(){{
- apiReady=true; updateButton.disabled=false; laterButton.disabled=false;
+function unlockWhenReady(){{
+ if(!apiReady||!uiReady) return;
+ updateButton.disabled=false; laterButton.disabled=false;
  statusLabel.textContent='Would you like to install this update now?';
 }}
+function markApiReady(){{apiReady=true;unlockWhenReady();}}
+window.addEventListener('load',()=>requestAnimationFrame(()=>requestAnimationFrame(()=>{{
+ uiReady=true; document.documentElement.classList.add('ready'); unlockWhenReady();
+}})),{{once:true}});
 if(window.pywebview && window.pywebview.api) markApiReady();
 else window.addEventListener('pywebviewready',markApiReady,{{once:true}});
 function showApiError(error){{
  if(pollTimer) clearInterval(pollTimer); pollTimer=null;
- progressFill.classList.remove('preparing'); progressFill.style.width='0%';
+ updateStarted=false; progressFill.classList.remove('indeterminate'); progressFill.style.width='0%';
  statusLabel.textContent='The updater could not start: '+(error && error.message ? error.message : String(error));
  updateButton.disabled=false; updateButton.textContent='Try again';
  laterButton.disabled=false; laterButton.textContent='Open app'; laterButton.onclick=continueApp;
 }}
 async function startUpdate(){{
- if(!apiReady) return;
- updateButton.disabled=true; laterButton.textContent='Cancel';
- laterButton.onclick=cancelUpdate; statusLabel.textContent='Connecting to GitHub…';
- progressFill.classList.add('preparing');
+ if(!apiReady||!uiReady||updateStarted) return;
+ updateStarted=true; updateButton.disabled=true; laterButton.textContent='Cancel';
+ laterButton.onclick=cancelUpdate; laterButton.disabled=false; statusLabel.textContent='Starting a secure background download…';
+ progressFill.style.width='0%'; progressFill.classList.add('indeterminate');
  try{{
   await window.pywebview.api.start_update();
-  progressFill.classList.remove('preparing');
   pollTimer=setInterval(pollState,300); pollState();
  }}catch(error){{showApiError(error);}}
 }}
@@ -347,9 +381,13 @@ async function pollState(){{
  try{{s=await window.pywebview.api.get_state();}}
  catch(error){{showApiError(error);return;}}
  statusLabel.textContent=s.message;
- progressFill.style.width=(s.percent||0)+'%';
+ progressFill.classList.toggle('indeterminate',!!s.indeterminate);
+ if(!s.indeterminate) progressFill.style.width=(s.percent||0)+'%';
+ if(s.status==='ready'){{updateButton.disabled=true;laterButton.disabled=true;}}
+ if(s.status==='handed_off'){{clearInterval(pollTimer);pollTimer=null;}}
  if(s.status==='error'||s.status==='cancelled'){{
   clearInterval(pollTimer); pollTimer=null;
+  updateStarted=false; progressFill.classList.remove('indeterminate');
   updateButton.disabled=false;
   updateButton.textContent=s.status==='error'?'Try again':'Update now';
   laterButton.disabled=false; laterButton.textContent='Open app';

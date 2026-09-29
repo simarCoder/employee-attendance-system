@@ -734,7 +734,11 @@ def checkout_route():
 
 @app.route("/attendance/<int:employee_id>", methods=["GET"])
 def attendance_view_route(employee_id):
-    records = get_attendance_by_employee(employee_id)
+    month = request.args.get("month")
+    try:
+        records = get_attendance_by_employee(employee_id, month=month)
+    except ValueError as e:
+        return jsonify({"message": str(e)}), 400
 
     result = []
 

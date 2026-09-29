@@ -507,11 +507,11 @@ def check_out(employee_id, custom_time=None, target_date=None):
     conn.close()
 
 
-def get_attendance_by_employee(employee_id):
+def get_attendance_by_employee(employee_id, month=None):
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute("""
+    query = """
                     SELECT
                         date,
                         check_in,
@@ -520,8 +520,24 @@ def get_attendance_by_employee(employee_id):
                         worked_minutes
                     FROM attendance
                     WHERE employee_id = ?
-                    ORDER BY date DESC
-                """, (employee_id,))
+                """
+    params = [employee_id]
+    if month:
+        # Month arrives as YYYY-MM from the month picker. Bound the SQL query
+        # so the UI only loads the selected month's records.
+        try:
+            year, month_number = (int(part) for part in month.split("-"))
+            if len(month) != 7 or not 1 <= month_number <= 12:
+                raise ValueError
+            start_date = f"{year:04d}-{month_number:02d}-01"
+            end_year, end_month = (year + 1, 1) if month_number == 12 else (year, month_number + 1)
+            end_date = f"{end_year:04d}-{end_month:02d}-01"
+        except (TypeError, ValueError):
+            raise ValueError("Month must be provided in YYYY-MM format")
+        query += " AND date >= ? AND date < ?"
+        params.extend((start_date, end_date))
+    query += " ORDER BY date DESC"
+    cursor.execute(query, params)
 
     rows = cursor.fetchall()
 

@@ -153,13 +153,20 @@ async function loadAttendanceHistory(empId) {
   if (!empId) return;
 
   const tbody = document.getElementById("attendance-table-body");
+  const monthInput = document.getElementById("individual-attendance-month");
+  const month = monthInput?.value || new Date().toISOString().slice(0, 7);
+  const caption = document.getElementById("individual-attendance-caption");
+  if (caption) {
+    const [year, monthNumber] = month.split("-").map(Number);
+    caption.textContent = new Date(year, monthNumber - 1, 1).toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  }
   if (tbody)
-    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">Loading...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4" class="individual-attendance-empty">Loading attendance…</td></tr>`;
 
   try {
     // Cache busting timestamp
     const response = await fetch(
-      `${API_BASE}/attendance/${empId}?t=${new Date().getTime()}`,
+      `${API_BASE}/attendance/${empId}?month=${encodeURIComponent(month)}&t=${new Date().getTime()}`,
     );
 
     if (response.ok) {
@@ -168,7 +175,7 @@ async function loadAttendanceHistory(empId) {
         tbody.innerHTML = "";
 
         if (data.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">No records found for this employee.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="4" class="individual-attendance-empty">No attendance records for this month.</td></tr>`;
           return;
         }
 
@@ -193,14 +200,40 @@ async function loadAttendanceHistory(empId) {
     } else {
       console.error("Failed to fetch attendance history");
       if (tbody)
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color: #ef4444;">Error loading records.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" class="individual-attendance-empty">Error loading records.</td></tr>`;
     }
   } catch (error) {
     console.error("Error fetching attendance:", error);
     if (tbody)
-      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color: #ef4444;">Connection Error.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="4" class="individual-attendance-empty">Unable to connect. Please try again.</td></tr>`;
   }
 }
+
+function shiftIndividualAttendanceMonth(offset) {
+  const input = document.getElementById("individual-attendance-month");
+  if (!input) return;
+  const [year, month] = (input.value || new Date().toISOString().slice(0, 7)).split("-").map(Number);
+  const next = new Date(year, month - 1 + offset, 1);
+  input.value = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}`;
+  const employeeId = document.getElementById("att-employee-select")?.value;
+  if (employeeId) loadAttendanceHistory(employeeId);
+}
+
+const individualMonth = document.getElementById("individual-attendance-month");
+if (individualMonth) {
+  individualMonth.value = new Date().toISOString().slice(0, 7);
+  individualMonth.addEventListener("change", () => {
+    const employeeId = document.getElementById("att-employee-select")?.value;
+    if (employeeId) loadAttendanceHistory(employeeId);
+    else {
+      const [year, month] = individualMonth.value.split("-").map(Number);
+      const caption = document.getElementById("individual-attendance-caption");
+      if (caption) caption.textContent = new Date(year, month - 1, 1).toLocaleDateString(undefined, { month: "long", year: "numeric" });
+    }
+  });
+}
+document.getElementById("individual-attendance-previous")?.addEventListener("click", () => shiftIndividualAttendanceMonth(-1));
+document.getElementById("individual-attendance-next")?.addEventListener("click", () => shiftIndividualAttendanceMonth(1));
 
 // Trigger history load when dropdown changes
 const attSelect = document.getElementById("att-employee-select");

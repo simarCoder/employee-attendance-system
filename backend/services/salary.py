@@ -319,18 +319,19 @@ def generate_salary(employee_id, month, role=None):
                 * Decimal(str(deducted_holidays))
             )
         else:
+            # Monthly salaried staff accrue one calendar-day rate per day of
+            # the month. Scheduled working days are still used to determine
+            # absences, but they do not set the monetary leave deduction rate.
+            monthly_amount = Decimal(str(monthly_salary))
+            daily_rate = monthly_amount / Decimal(days_in_month)
             hourly_rate = (
-                monthly_salary / (working_days * daily_hours)
+                float(daily_rate / Decimal(str(daily_hours)))
                 if daily_hours > 0 else 0.0
             )
             # A fixed monthly salary is paid in full. Attendance affects it
             # only through chargeable full-day absences below.
-            gross_amount = Decimal(str(monthly_salary))
-            deduction_amount = (
-                Decimal(str(monthly_salary))
-                * Decimal(str(deducted_holidays))
-                / working_days
-            )
+            gross_amount = monthly_amount
+            deduction_amount = daily_rate * Decimal(str(deducted_holidays))
 
         hourly_rate_snapshot = _money(hourly_rate)
         gross_salary = _money(gross_amount)

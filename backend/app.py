@@ -846,31 +846,12 @@ def update_pending_attendance_route():
         employee_id, attendance_date, check_in_time, check_out_time = record
 
         if punch_type == "check_in":
-            if check_in_time is not None:
-                return jsonify({
-                    "success": False,
-                    "message": "Check-in already exists for this record."
-                }), 400
-
             check_in(
                 employee_id,
                 custom_time=manual_time,
                 target_date=attendance_date
             )
-
         else:
-            if check_out_time is not None:
-                return jsonify({
-                    "success": False,
-                    "message": "Check-out already exists for this record."
-                }), 400
-
-            if check_in_time is None:
-                return jsonify({
-                    "success": False,
-                    "message": "Cannot add check-out without check-in."
-                }), 400
-
             check_out(
                 employee_id,
                 custom_time=manual_time,
@@ -879,7 +860,7 @@ def update_pending_attendance_route():
 
         return jsonify({
             "success": True,
-            "message": "Pending attendance updated successfully."
+            "message": f"{'Check-in' if punch_type == 'check_in' else 'Check-out'} updated successfully."
         })
 
     except Exception as e:

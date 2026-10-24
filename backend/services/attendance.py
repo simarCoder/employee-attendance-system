@@ -350,8 +350,8 @@ def check_in(employee_id, custom_time=None, target_date=None):
                     
                     if check_out_dt < check_in_dt:
                          # If new in-time is after out-time, this is invalid for a single day shift.
-                         # We allow the update but worked hours will be negative or zero.
                          worked_hours = 0.0
+                         worked_minutes = 0
                     else:
                         worked_hours = (check_out_dt - check_in_dt).seconds / 3600
                         worked_minutes = int(round(worked_hours * 60))
@@ -451,9 +451,26 @@ def check_out(employee_id, custom_time=None, target_date=None):
         ) = employee_rules
 
     if not record:
-        cursor.close()
-        conn.close()
-        raise Exception("No check-in found for this date")
+        if custom_time:
+            cursor.execute("""
+                INSERT INTO attendance (
+                    employee_id,
+                    date,
+                    check_in,
+                    check_out,
+                    check_out_source,
+                    worked_hours,
+                    worked_minutes
+                ) VALUES (?, ?, NULL, ?, 'admin', 0.0, 0)
+            """, (employee_id, today, now))
+            conn.commit()
+            cursor.close()
+            conn.close()
+            return
+        else:
+            cursor.close()
+            conn.close()
+            raise Exception("No check-in found for this date")
 
     attendance_id, check_in_time, locked = record
 
@@ -463,39 +480,43 @@ def check_out(employee_id, custom_time=None, target_date=None):
         conn.close()
         raise Exception("Attendance record is locked")
 
-    try:
-        check_in_dt = datetime.strptime(
-            check_in_time,
-            "%H:%M:%S"
-        )
+    worked_hours = 0.0
+    worked_minutes = 0
 
-        check_out_dt = datetime.strptime(
-            now,
-            "%H:%M:%S"
-        )
-
-        if check_out_dt < check_in_dt:
-            raise ValueError(
-                "Check-out time cannot be before check-in time"
+    if check_in_time:
+        try:
+            check_in_dt = datetime.strptime(
+                check_in_time,
+                "%H:%M:%S"
             )
 
-        worked_minutes = int(
-            round(
-                (check_out_dt - check_in_dt).total_seconds() / 60
+            check_out_dt = datetime.strptime(
+                now,
+                "%H:%M:%S"
             )
-        )
 
-        worked_hours = round(
-            worked_minutes / 60,
-            4
-        )
+            if check_out_dt < check_in_dt:
+                raise ValueError(
+                    "Check-out time cannot be before check-in time"
+                )
 
-    except ValueError as ve:
-        cursor.close()
-        conn.close()
-        raise Exception(
-            f"Time Calculation Error: {str(ve)}"
-        )
+            worked_minutes = int(
+                round(
+                    (check_out_dt - check_in_dt).total_seconds() / 60
+                )
+            )
+
+            worked_hours = round(
+                worked_minutes / 60,
+                4
+            )
+
+        except ValueError as ve:
+            cursor.close()
+            conn.close()
+            raise Exception(
+                f"Time Calculation Error: {str(ve)}"
+            )
 
     cursor.execute("""
             UPDATE attendance

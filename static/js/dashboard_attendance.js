@@ -70,6 +70,39 @@ function formatDuration(minutes) {
   return `${hours}h ${mins}m`;
 }
 
+function resolveDashboardStatus(record) {
+  const rawStatus = record.status || "-";
+  if (
+    rawStatus === "Incomplete" ||
+    (record.check_in && !record.check_out) ||
+    (!record.check_in && record.check_out)
+  ) {
+    return "Incomplete";
+  }
+  if (
+    record.worked_minutes !== null &&
+    record.worked_minutes !== undefined &&
+    record.daily_hours !== null &&
+    record.daily_hours !== undefined &&
+    Number(record.daily_hours) > 0
+  ) {
+    const workedMins = Number(record.worked_minutes);
+    const dailyMins = Number(record.daily_hours) * 60;
+    const graceMins = Number(record.late_grace_minutes || 0);
+    const fullDayMins = Math.max(dailyMins * 0.5, dailyMins - graceMins);
+    const halfDayMins = dailyMins * 0.5;
+
+    if (workedMins >= fullDayMins) {
+      return "Present";
+    }
+    if (workedMins >= halfDayMins) {
+      return "Half Day";
+    }
+    return "Absent";
+  }
+  return rawStatus;
+}
+
 function calculateDashboardOvertime(record) {
   if (
     record.worked_minutes === null ||
@@ -181,7 +214,7 @@ function renderAttendanceRecords(records) {
         </td>
 
         <td>
-          ${escapeHtml(record.status || "-")}
+          ${escapeHtml(resolveDashboardStatus(record))}
         </td>
       `;
 
@@ -200,7 +233,9 @@ function renderAttendanceRecords(records) {
 function filterDashboardAttendance(query) {
   const tbody = document.getElementById("dashboard-attendance-body");
   if (!tbody) return;
-  const term = String(query || "").trim().toLocaleLowerCase();
+  const term = String(query || "")
+    .trim()
+    .toLocaleLowerCase();
   let visibleCount = 0;
   let hasRecords = false;
   tbody.querySelectorAll("tr").forEach((row) => {
@@ -214,22 +249,33 @@ function filterDashboardAttendance(query) {
   if (!emptyRow) {
     emptyRow = document.createElement("tr");
     emptyRow.id = "dashboard-attendance-no-results";
-    emptyRow.innerHTML = '<td colspan="9" style="text-align:center;color:var(--text-muted);">No matching attendance records.</td>';
+    emptyRow.innerHTML =
+      '<td colspan="9" style="text-align:center;color:var(--text-muted);">No matching attendance records.</td>';
     tbody.appendChild(emptyRow);
   }
   emptyRow.hidden = !hasRecords || visibleCount > 0 || !term;
 }
 
 function updateAttendanceSummary(records) {
-  const present = records.filter(
-    (record) => record.status === "Present",
+  const resolvedStatuses = records.map((record) =>
+    resolveDashboardStatus(record),
+  );
+
+  const present = resolvedStatuses.filter(
+    (status) => status === "Present",
   ).length;
 
-  const incomplete = records.filter(
-    (record) => record.status === "Incomplete",
+  const halfDay = resolvedStatuses.filter(
+    (status) => status === "Half Day",
   ).length;
 
-  const absent = records.filter((record) => record.status === "Absent").length;
+  const incomplete = resolvedStatuses.filter(
+    (status) => status === "Incomplete",
+  ).length;
+
+  const absent = resolvedStatuses.filter(
+    (status) => status === "Absent",
+  ).length;
 
   const scheduledDays = records.filter(
     (record) => record.scheduled === true,
@@ -248,7 +294,8 @@ function updateAttendanceSummary(records) {
   );
 
   if (presentElement) {
-    presentElement.textContent = present;
+    presentElement.textContent =
+      halfDay > 0 ? `${present} (+${halfDay} HD)` : present;
   }
 
   if (incompleteElement) {
@@ -438,7 +485,9 @@ function updateAttendanceControls() {
 function ensureAttendanceYearOption(select, year) {
   if (!select) return;
 
-  if (!Array.from(select.options).some((option) => Number(option.value) === year)) {
+  if (
+    !Array.from(select.options).some((option) => Number(option.value) === year)
+  ) {
     const option = document.createElement("option");
     option.value = String(year);
     option.textContent = String(year);
@@ -460,7 +509,11 @@ async function navigateAttendancePeriod(direction) {
   if (mode === "month") {
     const month = document.getElementById("dashboard-attendance-month");
     const year = document.getElementById("dashboard-attendance-month-year");
-    const date = new Date(Number(year.value), Number(month.value) - 1 + direction, 1);
+    const date = new Date(
+      Number(year.value),
+      Number(month.value) - 1 + direction,
+      1,
+    );
     ensureAttendanceYearOption(year, date.getFullYear());
     year.value = String(date.getFullYear());
     month.value = String(date.getMonth() + 1);

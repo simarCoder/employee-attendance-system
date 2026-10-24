@@ -1,86 +1,247 @@
-/* theme.css
-    Defines the core color palette, typography, and base resets.
-    Theme: Midnight Indigo (Premium Dark Mode) & Clean Light Mode
-*/
+/* =========================================================
+   OPERON HRMS
+   Theme & Design System
+   Phase 1 - Enterprise Light Foundation
+   ========================================================= */
+
+/* =========================================================
+   1. DESIGN TOKENS
+   ========================================================= */
+
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
 
 :root {
-  /* Default: Midnight Indigo (Dark) */
-  --bg-body: #030712; /* Ultra Dark Blue/Gray */
-  --bg-sidebar: #000000; /* Pure Black for contrast */
-  --bg-card: #111827; /* Gray 900 */
-  --bg-input: #1f2937; /* Gray 800 */
+  /* ---------- Brand ---------- */
 
-  --text-main: #f9fafb; /* Gray 50 (Bright White) */
-  --text-muted: #9ca3af; /* Gray 400 */
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-active: #1e40af;
+  --primary-light: #eff6ff;
+  --primary-border: #bfdbfe;
 
-  --primary: #6366f1; /* Indigo 500 */
-  --primary-hover: #4f46e5; /* Indigo 600 */
+  /* ---------- Page / Surface ---------- */
 
-  --danger: #ef4444; /* Red 500 */
-  --success: #10b981; /* Emerald 500 */
+  --bg-body: #f6f8fb;
+  --bg-sidebar: #ffffff;
+  --bg-card: #ffffff;
+  --bg-input: #ffffff;
+  --bg-muted: #f8fafc;
+  --bg-hover: #f1f5f9;
+  --bg-selected: #eff6ff;
 
-  --border: #1f2937; /* Gray 800 */
+  /* ---------- Typography ---------- */
 
-  /* Spacing & Layout */
-  --sidebar-width: 260px;
+  --text-main: #172033;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --text-placeholder: #94a3b8;
+  --text-inverse: #ffffff;
+
+  /* ---------- Borders ---------- */
+
+  --border: #e2e8f0;
+  --border-light: #edf1f5;
+  --border-strong: #cbd5e1;
+  --border-focus: #93c5fd;
+
+  /* ---------- Status ---------- */
+
+  --success: #16a34a;
+  --success-hover: #15803d;
+  --success-light: #f0fdf4;
+  --success-border: #bbf7d0;
+
+  --warning: #d97706;
+  --warning-hover: #b45309;
+  --warning-light: #fffbeb;
+  --warning-border: #fde68a;
+
+  --danger: #dc2626;
+  --danger-hover: #b91c1c;
+  --danger-light: #fef2f2;
+  --danger-border: #fecaca;
+
+  --info: #2563eb;
+  --info-light: #eff6ff;
+  --info-border: #bfdbfe;
+
+  /* ---------- Layout ---------- */
+
+  --sidebar-width: 248px;
+  --sidebar-collapsed-width: 72px;
   --header-height: 64px;
-  --radius: 10px;
-  --shadow:
-    0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+
+  --content-max-width: 1600px;
+
+  /* ---------- Radius ---------- */
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 999px;
+
+  /* ---------- Shadows ---------- */
+
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.03);
+
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.05);
+
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.06);
+
+  --shadow-lg: 0 10px 24px rgba(15, 23, 42, 0.08);
+
+  /* ---------- Spacing ---------- */
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* ---------- Typography Scale ---------- */
+
+  --text-xs: 13px;
+  --text-sm: 14px;
+  --text-md: 16px;
+  --text-lg: 18px;
+  --text-xl: 21px;
+  --text-2xl: 27px;
+  --text-3xl: 33px;
+
+  /* ---------- Motion ---------- */
+
+  --transition-fast: 150ms ease;
+  --transition-normal: 200ms ease;
+  --transition-slow: 300ms ease;
+
+  /* ---------- Focus ---------- */
+
+  --focus-ring: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
 
-/* Light Mode Overrides */
-[data-theme="light"] {
-  --bg-body: #f3f4f6; /* Gray 100 */
-  --bg-sidebar: #ffffff; /* White */
-  --bg-card: #ffffff; /* White */
-  --bg-input: #f9fafb; /* Gray 50 */
+/* =========================================================
+   2. DARK MODE (TRUE PITCH-BLACK MINIMALISM)
+   Pure OLED #000000 canvas, crisp light-grey line accents,
+   and vibrant, purposeful semantic colors.
+   ========================================================= */
 
-  --text-main: #111827; /* Gray 900 */
-  --text-muted: #6b7280; /* Gray 500 */
+[data-theme="dark"] {
+  /* ---------- Pure Pitch-Black Surfaces ---------- */
+  --bg-body: #000000;
+  --bg-sidebar: #050505;
+  --bg-card: #0a0a0a;
+  --bg-input: #121212;
+  --bg-muted: #141414;
+  --bg-hover: #181818;
+  --bg-selected: rgba(59, 130, 246, 0.14);
 
-  --primary: #4f46e5; /* Indigo 600 (Slightly darker for light bg) */
-  --primary-hover: #4338ca; /* Indigo 700 */
+  /* ---------- High-Contrast Minimalist Typography ---------- */
+  --text-main: #f5f5f5;
+  --text-secondary: #a3a3a3;
+  --text-muted: #737373;
+  --text-placeholder: #525252;
+  --text-inverse: #000000;
 
-  --border: #e5e7eb; /* Gray 200 */
-  --shadow:
-    0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  /* ---------- Light-Grey Accent Lines & Dividers ---------- */
+  --border: #262626;
+  --border-light: #1c1c1c;
+  --border-strong: #383838;
+  --border-focus: #3b82f6;
+
+  /* ---------- Vibrant Semantic Accents ---------- */
+  --primary: #3b82f6;
+  --primary-hover: #60a5fa;
+  --primary-active: #2563eb;
+  --primary-light: rgba(59, 130, 246, 0.14);
+  --primary-border: rgba(59, 130, 246, 0.32);
+
+  --success: #22c55e;
+  --success-hover: #4ade80;
+  --success-light: rgba(34, 197, 94, 0.14);
+  --success-border: rgba(34, 197, 94, 0.32);
+
+  --warning: #f59e0b;
+  --warning-hover: #fbbf24;
+  --warning-light: rgba(245, 158, 11, 0.14);
+  --warning-border: rgba(245, 158, 11, 0.32);
+
+  --danger: #ef4444;
+  --danger-hover: #f87171;
+  --danger-light: rgba(239, 68, 68, 0.14);
+  --danger-border: rgba(239, 68, 68, 0.32);
+
+  --info: #06b6d4;
+  --info-light: rgba(6, 182, 212, 0.14);
+  --info-border: rgba(6, 182, 212, 0.32);
+
+  /* ---------- Minimalist Shadow Reduction ---------- */
+  --shadow-xs: none;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.7);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.85);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.95);
+
+  --focus-ring: 0 0 0 2px rgba(59, 130, 246, 0.35);
 }
 
-* {
+/* =========================================================
+   3. GLOBAL RESET
+   ========================================================= */
+
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
+/* =========================================================
+   4. DOCUMENT
+   ========================================================= */
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
+  min-height: 100vh;
+
   font-family:
-    "Inter",
+    "Plus Jakarta Sans",
+    Inter,
+    ui-sans-serif,
     system-ui,
     -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
     sans-serif;
-  background-color: var(--bg-body);
-  /* Aesthetic Gradient Overlay for Depth */
-  background-image:
-    radial-gradient(
-      circle at 15% 50%,
-      rgba(99, 102, 241, 0.08),
-      transparent 25%
-    ),
-    radial-gradient(
-      circle at 85% 30%,
-      rgba(16, 185, 129, 0.05),
-      transparent 25%
-    );
-  color: var(--text-main);
+
+  font-weight: 500;
+
+  font-size: var(--text-md);
   line-height: 1.5;
+
+  background-color: var(--bg-body);
+  color: var(--text-main);
+
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
   transition:
-    background-color 0.3s ease,
-    color 0.3s ease;
-  min-height: 100vh;
-  margin-top: 30px;
+    background-color var(--transition-normal),
+    color var(--transition-normal);
 }
+
+/* =========================================================
+   5. TYPOGRAPHY
+   ========================================================= */
 
 h1,
 h2,
@@ -88,85 +249,188 @@ h3,
 h4,
 h5,
 h6 {
-  font-weight: 700;
-  letter-spacing: -0.025em;
   color: var(--text-main);
+
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+}
+
+h1 {
+  font-size: var(--text-3xl);
+}
+
+h2 {
+  font-size: var(--text-2xl);
+}
+
+h3 {
+  font-size: var(--text-xl);
+}
+
+h4 {
+  font-size: var(--text-lg);
+}
+
+h5,
+h6 {
+  font-size: var(--text-md);
+}
+
+p {
+  color: var(--text-secondary);
+}
+
+small {
+  font-size: var(--text-xs);
+}
+
+strong,
+b {
+  font-weight: 600;
 }
 
 a {
+  color: var(--primary);
   text-decoration: none;
+}
+
+a:hover {
+  color: var(--primary-hover);
+}
+
+/* =========================================================
+   6. FORM FOUNDATION
+   ========================================================= */
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
   color: inherit;
 }
 
-/* Scrollbar Styling */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-::-webkit-scrollbar-track {
-  background: var(--bg-body);
-}
-::-webkit-scrollbar-thumb {
-  background: var(--bg-input);
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--border);
+input,
+select,
+textarea {
+  color: var(--text-main);
+  background-color: var(--bg-input);
 }
 
-/* Global surface rounding */
-.card,
-.table-container,
-.form-section,
-.employee-form,
-.employee-directory,
-.sidebar,
-.nav-item,
-.btn,
-.form-control,
-.status-badge {
-  border-radius: 10px;
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-placeholder);
 }
 
-/* Larger major containers */
-.card,
-.form-section,
-.employee-directory,
-.table-container {
-  border-radius: 12px;
+input:focus,
+select:focus,
+textarea:focus,
+button:focus-visible {
+  outline: none;
 }
 
-/* Buttons */
-.btn {
-  border-radius: 8px;
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--border-focus);
+  box-shadow: var(--focus-ring);
 }
 
-/* Inputs */
-.form-control {
-  border-radius: 9px;
+/* =========================================================
+   7. IMAGES / MEDIA
+   ========================================================= */
+
+img,
+svg {
+  display: block;
 }
 
-/* Status pills stay more rounded */
-.status-badge {
-  border-radius: 999px !important;
+img {
+  max-width: 100%;
 }
 
-/* Employee action grid */
-.employee-actions {
-  border-radius: 10px;
+/* =========================================================
+   8. TABLE FOUNDATION
+   ========================================================= */
+
+table {
+  border-collapse: collapse;
+  border-spacing: 0;
 }
 
-/* Action buttons */
-.employee-action-btn {
-  border-radius: 7px;
+/* =========================================================
+   9. SELECTION
+   ========================================================= */
+
+::selection {
+  background: rgba(37, 99, 235, 0.15);
+  color: var(--text-main);
 }
 
-/* Sidebar */
-.sidebar {
-  border-radius: 0 14px 14px 0;
+/* =========================================================
+   10. SCROLLBARS
+   ========================================================= */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
 }
 
-/* Sidebar collapse button */
-.sidebar-collapse-btn {
-  border-radius: 50%;
+*::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: var(--radius-pill);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* =========================================================
+   11. ACCESSIBILITY
+   ========================================================= */
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* =========================================================
+   12. REDUCED MOTION
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

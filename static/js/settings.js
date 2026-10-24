@@ -8,6 +8,10 @@ function loadSettings() {
 
   const role = sessionStorage.getItem("role");
 
+  if (role === "admin" || role === "head") {
+    loadBonusConfig();
+  }
+
   if (role === "head") {
     loadRenewalDate();
     loadDemoMode();
@@ -808,5 +812,47 @@ async function changeOwnPassword(event) {
   } catch (error) {
     console.error(error);
     showToast("Server error while changing password.", "error");
+  }
+}
+
+async function loadBonusConfig() {
+  try {
+    const res = await fetch(`${API_BASE}/settings/bonus`);
+    const data = await res.json();
+    if (res.ok) {
+      const input = document.getElementById("setting-bonus-amount");
+      if (input) {
+        input.value = parseFloat(data.bonus_amount || 0).toFixed(2);
+      }
+    }
+  } catch (err) {
+    console.error("Failed to load bonus config:", err);
+  }
+}
+
+async function saveBonusConfig(event) {
+  event.preventDefault();
+  const input = document.getElementById("setting-bonus-amount");
+  const bonus = parseFloat(input?.value || 0);
+
+  if (isNaN(bonus) || bonus < 0) {
+    if (window.showToast) showToast("Please enter a valid non-negative bonus amount", "error");
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/settings/bonus`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bonus_amount: bonus }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      if (window.showToast) showToast("Attendance bonus updated successfully", "success");
+    } else {
+      if (window.showToast) showToast(data.message || "Failed to update bonus", "error");
+    }
+  } catch (err) {
+    if (window.showToast) showToast("Server error updating bonus", "error");
   }
 }

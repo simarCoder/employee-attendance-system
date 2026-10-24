@@ -1,273 +1,10 @@
-//
-//   salary.js
-//   Handles Salary Generation and Viewing.
-//
+/**
+ * salary.js
+ * Handles Salary Generation and Viewing (with Full Day & Half Day breakdown).
+ */
 
 let salaryRecordsSearchTerm = "";
 let salaryRecordsRequestSequence = 0;
-
-// Initialize Date Pickers on Load
-// document.addEventListener("DOMContentLoaded", () => {
-//   populateDateSelectors();
-// });
-
-// function populateDateSelectors() {
-//   const monthSelect = document.getElementById("salary-month-select");
-//   const yearSelect = document.getElementById("salary-year-select");
-
-//   if (!monthSelect || !yearSelect) return;
-
-// Populate Months
-//   const months = [
-//     "January",
-//     "February",
-//     "March",
-//     "April",
-//     "May",
-//     "June",
-//     "July",
-//     "August",
-//     "September",
-//     "October",
-//     "November",
-//     "December",
-//   ];
-
-//   months.forEach((m, index) => {
-//     const option = document.createElement("option");
-//     option.value = (index + 1).toString().padStart(2, "0"); // 01, 02...
-//     option.textContent = m;
-//     monthSelect.appendChild(option);
-//   });
-
-//   // Set current month
-//   const currentMonth = new Date().getMonth();
-//   monthSelect.selectedIndex = currentMonth;
-
-//   // Populate Years (Current year - 2 to Current year + 1)
-//   const currentYear = new Date().getFullYear();
-//   for (let i = currentYear - 2; i <= currentYear + 1; i++) {
-//     const option = document.createElement("option");
-//     option.value = i;
-//     option.textContent = i;
-//     yearSelect.appendChild(option);
-//   }
-
-//   // Set current year
-//   yearSelect.value = currentYear;
-// }
-
-// // Listen for employee load to populate dropdown
-// window.addEventListener("employeesLoaded", (e) => {
-//   populateEmployeeDropdown("salary-employee-select", e.detail);
-// });
-
-// // Helper to construct YYYY-MM
-// function getSelectedMonthStr() {
-//   const month = document.getElementById("salary-month-select").value;
-//   const year = document.getElementById("salary-year-select").value;
-
-//   if (!month || !year) return null;
-//   return `${year}-${month}`;
-// }
-
-// async function generateSalary() {
-//   const empId = document.getElementById("salary-employee-select").value;
-//   const monthStr = getSelectedMonthStr();
-//   const role = sessionStorage.getItem("role"); // Get current user role
-
-//   if (!empId || !monthStr) {
-//     if (window.showToast)
-//       showToast("Please select employee, month and year", "error");
-//     return;
-//   }
-
-//   try {
-//     // 1. Attempt to Generate
-//     const genRes = await fetch(`${API_BASE}/salary/generate`, {
-//       method: "POST",
-//       headers: { "Content-Type": "application/json" },
-//       body: JSON.stringify({
-//         employee_id: parseInt(empId),
-//         month: monthStr,
-//         role: role, // Send role to authenticate possible override
-//       }),
-//     });
-
-//     const genData = await genRes.json();
-
-//     if (genData.status === "new") {
-//       if (window.showToast)
-//         showToast("Success: Salary Slip Generated!", "success");
-//       fetchSalaryView(empId, monthStr);
-//     } else if (genData.status === "exists") {
-//       if (window.showToast)
-//         showToast("Salary already exists. Loading details...", "success");
-//       fetchSalaryView(empId, monthStr);
-//     } else {
-//       if (window.showToast)
-//         showToast("Error: " + (genData.message || "Unknown error"), "error");
-//     }
-//   } catch (error) {
-//     console.error(error);
-//     if (window.showToast) showToast("Server Connection Error", "error");
-//   }
-// }
-
-// async function viewSalary() {
-//   const empId = document.getElementById("salary-employee-select").value;
-//   const monthStr = getSelectedMonthStr();
-
-//   if (!empId || !monthStr) {
-//     if (window.showToast)
-//       showToast("Please select employee, month and year", "error");
-//     return;
-//   }
-
-//   fetchSalaryView(empId, monthStr);
-// }
-
-// async function fetchSalaryView(empId, month) {
-//   try {
-//     const viewRes = await fetch(
-//       `${API_BASE}/salary/view?employee_id=${empId}&month=${month}`,
-//     );
-
-//     if (!viewRes.ok) {
-//       if (window.showToast)
-//         showToast("No salary slip found for this selection.", "error");
-//       document.getElementById("salary-result-container").innerHTML = "";
-//       return;
-//     }
-
-//     const data = await viewRes.json();
-//     displaySalaryCard(data);
-//   } catch (error) {
-//     console.error(error);
-//   }
-// }
-// function formatDuration(minutes) {
-//   if (
-//     minutes === null ||
-//     minutes === undefined ||
-//     Number.isNaN(Number(minutes))
-//   ) {
-//     return "-";
-//   }
-
-//   minutes = Math.max(0, Math.round(Number(minutes)));
-
-//   const hours = Math.floor(minutes / 60);
-//   const mins = minutes % 60;
-
-//   if (hours === 0) {
-//     return `${mins}m`;
-//   }
-
-//   if (mins === 0) {
-//     return `${hours}h`;
-//   }
-
-//   return `${hours}h ${mins}m`;
-// }
-
-// function displaySalaryCard(data) {
-//   // Format hours to max 2 decimals
-//   const formattedHours =
-//     data.total_hours !== null && data.total_hours !== undefined
-//       ? formatDuration(Math.round(Number(data.total_hours) * 60))
-//       : "-";
-
-//   const currentRole = sessionStorage.getItem("role");
-//   const isHead = currentRole === "head";
-
-//   // Allow edit if NOT locked OR if user is HEAD
-//   const canEdit = !data.locked || isHead;
-
-//   const container = document.getElementById("salary-result-container");
-//   container.innerHTML = `
-//         <div class="card" style="border-left: 4px solid var(--primary);">
-//             <h3>Salary Slip Generated</h3>
-//             <div style="margin-top: 1rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-//                 <div>
-//                     <label class="form-label">Month</label>
-//                     <div class="value">${data.month}</div>
-//                 </div>
-//                 <div>
-//                     <label class="form-label">Employee ID</label>
-//                     <div class="value">#${data.employee_id}</div>
-//                 </div>
-//                 <div>
-//                     <label class="form-label">Total Hours</label>
-//                     <div class="value" style="color: var(--text-main); font-size: 1.25rem; font-weight: bold;">
-//                         ${formattedHours}
-//                     </div>
-//                 </div>
-//             <div>
-//               <label class="form-label">Total Payout</label>
-//               <div style="display:flex; align-items:center; gap:5px;">
-//                   <span style="font-size:1.2rem; font-weight:bold;">₹</span>
-//                   ${
-//                     !canEdit
-//                       ? `<input type="number" value="${data.total_salary}" disabled class="form-control" />`
-//                       : `
-//                         <input type="number" id="editable-salary" value="${data.total_salary}" class="form-control admin-only" />
-//                       `
-//                   }
-//               </div>
-
-//               ${
-//                 canEdit
-//                   ? `
-//                 <button onclick="saveEditedSalary(${data.employee_id}, '${data.month}')"
-//                         class="btn btn-primary admin-only" style="margin-top:10px; width:100%;">
-//                     Save Changes
-//                 </button>
-//                 ${data.locked && isHead ? '<small style="color:#f59e0b; display:block; margin-top:5px;">* Unlocked via God Mode</small>' : ""}
-//               `
-//                   : '<small style="color:var(--text-muted); display:block; margin-top:5px;">* Locked</small>'
-//               }
-
-//           </div>
-
-//             </div>
-//         </div>
-//     `;
-// }
-
-// function saveEditedSalary(empId, month) {
-//   const newSalary = document.getElementById("editable-salary").value;
-//   const role = sessionStorage.getItem("role");
-
-//   fetch(`${API_BASE}/salary/update`, {
-//     method: "POST",
-//     headers: { "Content-Type": "application/json" },
-//     body: JSON.stringify({
-//       employee_id: empId,
-//       month: month,
-//       total_salary: parseFloat(newSalary),
-//       role: role, // Send role to authenticate God Mode edit
-//     }),
-//   })
-//     .then((res) => res.json())
-//     .then((data) => {
-//       // Use showToast if available, else alert
-//       if (window.showToast) {
-//         if (data.message && data.message.includes("success"))
-//           showToast(data.message, "success");
-//         else showToast(data.message, "error");
-//       } else {
-//         // Fallback if toast not available
-//         console.log(data.message);
-//       }
-//       fetchSalaryView(empId, month);
-//     });
-// }
-
-/**
- * salary.js
- * Handles Salary Generation and Viewing.
- */
 
 // Initialize Date Pickers on Load
 document.addEventListener("DOMContentLoaded", () => {
@@ -281,7 +18,6 @@ function populateDateSelectors() {
 
   if (!monthSelect || !yearSelect) return;
 
-  // Populate Months
   const months = [
     "January",
     "February",
@@ -299,16 +35,14 @@ function populateDateSelectors() {
 
   months.forEach((m, index) => {
     const option = document.createElement("option");
-    option.value = (index + 1).toString().padStart(2, "0"); // 01, 02...
+    option.value = (index + 1).toString().padStart(2, "0");
     option.textContent = m;
     monthSelect.appendChild(option);
   });
 
-  // Set current month
   const currentMonth = new Date().getMonth();
   monthSelect.selectedIndex = currentMonth;
 
-  // Populate Years (Current year - 2 to Current year + 1)
   const currentYear = new Date().getFullYear();
   for (let i = currentYear - 2; i <= currentYear + 1; i++) {
     const option = document.createElement("option");
@@ -317,7 +51,6 @@ function populateDateSelectors() {
     yearSelect.appendChild(option);
   }
 
-  // Set current year
   yearSelect.value = currentYear;
 }
 
@@ -342,10 +75,26 @@ function getSelectedMonthStr() {
   return `${year}-${month}`;
 }
 
+function getFullDaysCount(record) {
+  if (record.full_days !== undefined && record.full_days !== null) {
+    return Number(record.full_days);
+  }
+  const worked = Number(record.actual_worked_days || 0);
+  return Math.floor(worked);
+}
+
+function getHalfDaysCount(record) {
+  if (record.half_days !== undefined && record.half_days !== null) {
+    return Number(record.half_days);
+  }
+  const worked = Number(record.actual_worked_days || 0);
+  return worked % 1 !== 0 ? 1 : 0;
+}
+
 async function generateSalary() {
   const empId = document.getElementById("salary-employee-select").value;
   const monthStr = getSelectedMonthStr();
-  const role = sessionStorage.getItem("role"); // Get current user role
+  const role = sessionStorage.getItem("role");
 
   if (!empId || !monthStr) {
     if (window.showToast)
@@ -359,14 +108,13 @@ async function generateSalary() {
   }
 
   try {
-    // 1. Attempt to Generate
     const genRes = await fetch(`${API_BASE}/salary/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         employee_id: parseInt(empId),
         month: monthStr,
-        role: role, // Send role to authenticate possible override
+        role: role,
       }),
     });
 
@@ -400,11 +148,19 @@ async function generateSalaryRegister(month, role) {
       body: JSON.stringify({ month, role }),
     });
     const result = await response.json();
-    if (!response.ok) throw new Error(result.message || "Could not generate the payroll register.");
+    if (!response.ok)
+      throw new Error(
+        result.message || "Could not generate the payroll register.",
+      );
     renderSalaryRegister(result.records || [], month, result.errors || []);
     if (window.showToast) {
       const skipped = (result.errors || []).length;
-      showToast(skipped ? `Register ready; ${skipped} employee(s) need attention.` : "Payroll register generated.", skipped ? "error" : "success");
+      showToast(
+        skipped
+          ? `Register ready; ${skipped} employee(s) need attention.`
+          : "Payroll register generated.",
+        skipped ? "error" : "success",
+      );
     }
     loadSalaryRecords(month);
   } catch (error) {
@@ -415,28 +171,65 @@ async function generateSalaryRegister(month, role) {
 
 function renderSalaryRegister(records, month, errors = []) {
   const container = document.getElementById("salary-result-container");
-  const money = (value) => `INR ${Number(value || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  const rows = records.map((row, index) => `
+  const money = (value) =>
+    `₹ ${Number(value || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const rows = records
+    .map(
+      (row, index) => `
     <tr>
-      <td>${index + 1}</td><td>${row.employee_id}</td><td>${escapeHtml(row.employee_name || "-")}</td><td>${escapeHtml(row.employee_role || "-")}</td>
-      <td>${money(row.base_salary)}</td><td>${Number(row.actual_worked_days || 0)}</td>
-      <td>${formatLeaveUnits(row.grace_holidays_used)} / ${formatLeaveUnits(row.grace_holidays)}</td><td>${formatLeaveUnits(row.deducted_holidays)}</td>
-      <td>${formatDuration(row.overtime_minutes)}</td><td>${money(row.salary_deduction)}</td><td><strong>${money(row.total_salary)}</strong></td>
-    </tr>`).join("");
-  const total = records.reduce((sum, row) => sum + Number(row.total_salary || 0), 0);
+      <td style="width:48px;text-align:center;">${index + 1}</td>
+      <td style="width:58px;text-align:center;">#${row.employee_id}</td>
+      <td>${escapeHtml(row.employee_name || "-")}</td>
+      <td>${escapeHtml(row.employee_role || "-")}</td>
+      <td>${money(row.base_salary)}</td>
+      <td>${getFullDaysCount(row)}</td>
+      <td>${getHalfDaysCount(row)}</td>
+      <td><strong>${formatLeaveUnits(row.actual_worked_days)}</strong> / ${row.working_days ?? "-"}</td>
+      <td>${formatLeaveUnits(row.grace_holidays_used)} / ${formatLeaveUnits(row.grace_holidays)}</td>
+      <td>${formatLeaveUnits(row.deducted_holidays)}</td>
+      <td>${formatDuration(row.overtime_minutes)}</td>
+      <td>${money(row.salary_deduction)}</td>
+      <td style="color:var(--success, #10b981);font-weight:600;">${Number(row.bonus_amount || 0) > 0 ? `+ ${money(row.bonus_amount)}` : money(0)}</td>
+      <td><strong>${money(row.total_salary)}</strong></td>
+    </tr>`,
+    )
+    .join("");
+  const total = records.reduce(
+    (sum, row) => sum + Number(row.total_salary || 0),
+    0,
+  );
   container.innerHTML = `
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">
-        <div><h3>Payroll Register</h3><p style="color:var(--text-muted);margin:.35rem 0 0;">${month} · ${records.length} active employees · Total net payroll: <strong>INR ${total.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></p></div>
+        <div><h3>Payroll Register</h3><p style="color:var(--text-muted);margin:.35rem 0 0;">${month} · ${records.length} active employees · Total net payroll: <strong>₹ ${total.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></p></div>
         <button type="button" class="btn btn-primary" onclick="downloadSalaryPdf('${month}')">Download Register PDF</button>
       </div>
       <input type="search" class="form-control table-search" placeholder="Search register by employee, ID, or role…" aria-label="Search payroll register" oninput="filterTableBodyRows('salary-register-table-body', this.value)" />
       <div style="overflow:auto;margin-top:1rem;">
-        <table class="table"><thead><tr><th>Sr No</th><th>ID</th><th>Name</th><th>Role</th><th>Base Salary</th><th>Worked Days</th><th>Grace Used / Allowance</th><th>Charged Leaves</th><th>Overtime</th><th>Leave Deduction</th><th>Net Salary</th></tr></thead>
-        <tbody id="salary-register-table-body">${rows || '<tr><td colspan="11">No active employees found.</td></tr>'}</tbody></table>
+        <table class="table">
+          <thead>
+            <tr>
+              <th style="width:48px;text-align:center;">Sr No</th>
+              <th style="width:58px;text-align:center;">ID</th>
+              <th>Name</th>
+              <th>Role</th>
+              <th>Base Salary</th>
+              <th>Full Days</th>
+              <th>Half Days</th>
+              <th>Worked / Scheduled</th>
+              <th>Grace Used / Allowance</th>
+              <th>Charged Leaves</th>
+              <th>Overtime</th>
+              <th>Leave Deduction</th>
+              <th>Bonus</th>
+              <th>Net Salary</th>
+            </tr>
+          </thead>
+          <tbody id="salary-register-table-body">${rows || '<tr><td colspan="14">No active employees found.</td></tr>'}</tbody>
+        </table>
       </div>
       ${errors.length ? `<div style="margin-top:1rem;color:#b45309;"><strong>Employees needing attention:</strong> ${errors.map((item) => `#${item.employee_id}: ${escapeHtml(item.message)}`).join("; ")}</div>` : ""}
-      <small style="color:var(--text-muted);display:block;margin-top:.75rem;">Any recorded work time counts as a worked day. Each scheduled day without recorded work counts as one absence; grace days are deducted before charged leave is shown as used / allowance. Overtime is informational and does not affect net pay under current payroll rules.</small>
+      <small style="color:var(--text-muted);display:block;margin-top:.75rem;">Full Day (1.0) requires completing the assigned daily shift (within late grace); Half Day (0.5) requires at least 50% of daily hours; under 50% counts as Absent (0.0). Grace days offset absences (including 0.5 half-day absences) before charged leave is deducted. Overtime is informational and does not affect net pay under current payroll rules.</small>
     </div>`;
 }
 
@@ -444,7 +237,8 @@ async function downloadSelectedSalaryPdf() {
   const employeeId = document.getElementById("salary-employee-select").value;
   const month = getSelectedMonthStr();
   if (!employeeId || !month) {
-    if (window.showToast) showToast("Choose an employee and payroll period first.", "error");
+    if (window.showToast)
+      showToast("Choose an employee and payroll period first.", "error");
     return;
   }
   await downloadSalaryPdf(month, employeeId === "all" ? null : employeeId);
@@ -455,9 +249,6 @@ function downloadSalaryPdf(month, employeeId = null) {
   if (employeeId !== null && employeeId !== undefined) {
     query.set("employee_id", employeeId);
   }
-
-  // Navigate directly to Flask's attachment response. PyWebView's native
-  // download handler opens a Save dialog when ALLOW_DOWNLOADS is enabled.
   window.location.assign(`${API_BASE}/salary/pdf?${query}`);
 }
 
@@ -473,9 +264,12 @@ async function viewSalary() {
 
   if (empId === "all") {
     try {
-      const response = await fetch(`${API_BASE}/salary/records?month=${encodeURIComponent(monthStr)}`);
+      const response = await fetch(
+        `${API_BASE}/salary/records?month=${encodeURIComponent(monthStr)}`,
+      );
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Could not load payroll records.");
+      if (!response.ok)
+        throw new Error(result.error || "Could not load payroll records.");
       renderSalaryRegister(result.records || [], monthStr);
     } catch (error) {
       if (window.showToast) showToast(error.message, "error");
@@ -516,6 +310,7 @@ async function fetchSalaryView(empId, month) {
     console.error(error);
   }
 }
+
 function formatDuration(minutes) {
   if (
     minutes === null ||
@@ -548,6 +343,8 @@ function formatLeaveUnits(value) {
 
 function displaySalaryCard(data) {
   const formattedHours = formatDuration(data.actual_worked_minutes);
+  const fullDays = getFullDaysCount(data);
+  const halfDays = getHalfDaysCount(data);
 
   const currentRole = sessionStorage.getItem("role");
   const isHead = currentRole === "head";
@@ -562,7 +359,7 @@ function displaySalaryCard(data) {
     <div style="
       margin-top: 1rem;
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: 1rem;
     ">
 
@@ -595,7 +392,7 @@ function displaySalaryCard(data) {
       </div>
 
       <div>
-        <label class="form-label">Total Worked</label>
+        <label class="form-label">Total Worked Hours</label>
         <div
           class="value"
           style="font-size:1.25rem;font-weight:bold;"
@@ -605,9 +402,51 @@ function displaySalaryCard(data) {
       </div>
 
       <div>
-        <label class="form-label">Working Days</label>
+        <label class="form-label">Working Days (Scheduled)</label>
         <div class="value">
           ${data.working_days ?? "-"}
+        </div>
+      </div>
+
+      <div>
+        <label class="form-label">Full Days</label>
+        <div class="value" style="font-weight:600; color: var(--success, #16a34a);">
+          ${fullDays}
+        </div>
+      </div>
+
+      <div>
+        <label class="form-label">Half Days</label>
+        <div class="value" style="font-weight:600; color: #d97706;">
+          ${halfDays}
+        </div>
+      </div>
+
+      <div>
+        <label class="form-label">Total Worked Days</label>
+        <div class="value" style="font-weight:bold;">
+          ${formatLeaveUnits(data.actual_worked_days)} / ${data.working_days ?? "-"}
+        </div>
+      </div>
+
+      <div>
+        <label class="form-label">Absent Days</label>
+        <div class="value">
+          ${formatLeaveUnits(data.absence_days)}
+        </div>
+      </div>
+
+      <div>
+        <label class="form-label">Grace Used / Allowance</label>
+        <div class="value">
+          ${formatLeaveUnits(data.grace_holidays_used)} / ${formatLeaveUnits(data.grace_holidays)}
+        </div>
+      </div>
+
+      <div>
+        <label class="form-label">Charged Leave (Days)</label>
+        <div class="value">
+          ${formatLeaveUnits(data.deducted_holidays)}
         </div>
       </div>
 
@@ -636,6 +475,13 @@ function displaySalaryCard(data) {
         <label class="form-label">Overtime Pay</label>
         <div class="value">
           ₹${Number(data.overtime_pay || 0).toFixed(2)}
+        </div>
+      </div>
+
+      <div>
+        <label class="form-label">Attendance Bonus</label>
+        <div class="value" style="color:var(--success, #10b981);font-weight:600;">
+          + ₹${Number(data.bonus_amount || 0).toFixed(2)}
         </div>
       </div>
 
@@ -764,17 +610,20 @@ function displaySalaryCard(data) {
 
   loadSalaryRecords(data.month);
 }
+
 function renderSalaryRecords(records, selectedMonth) {
   const container = document.getElementById("salary-records-container");
   if (!container) return;
 
   const rows = records
-    .map(
-      (record) => `
+    .map((record) => {
+      const fullDays = getFullDaysCount(record);
+      const halfDays = getHalfDaysCount(record);
+      return `
       <!-- Main salary row -->
       <tr class="salary-record-main-row">
 
-        <td>
+        <td style="width:58px;text-align:center;">
           #${record.employee_id}
         </td>
 
@@ -791,11 +640,27 @@ function renderSalaryRecords(records, selectedMonth) {
         </td>
 
         <td>
+          ${fullDays}
+        </td>
+
+        <td>
+          ${halfDays}
+        </td>
+
+        <td>
+          <strong>${formatLeaveUnits(record.actual_worked_days)}</strong> / ${record.working_days ?? "-"}
+        </td>
+
+        <td>
           ${formatDuration(record.actual_worked_minutes)}
         </td>
 
         <td>
           ₹${Number(record.monthly_salary || 0).toFixed(2)}
+        </td>
+
+        <td style="color:var(--success, #10b981);font-weight:600;">
+          ${Number(record.bonus_amount || 0) > 0 ? `+ ₹${Number(record.bonus_amount).toFixed(2)}` : `₹0.00`}
         </td>
 
         <td>
@@ -830,7 +695,7 @@ function renderSalaryRecords(records, selectedMonth) {
       <tr class="salary-detail-row">
 
         <td
-          colspan="9"
+          colspan="13"
           style="
             padding:0;
             border:0;
@@ -918,12 +783,42 @@ function renderSalaryRecords(records, selectedMonth) {
                 </div>
 
                 <div>
-                  <strong>Working Days:</strong>
+                  <strong>Working Days (Scheduled):</strong>
                   ${record.working_days ?? "-"}
                 </div>
 
                 <div>
-                  <strong>Total Worked:</strong>
+                  <strong>Full Days:</strong>
+                  ${fullDays}
+                </div>
+
+                <div>
+                  <strong>Half Days:</strong>
+                  ${halfDays}
+                </div>
+
+                <div>
+                  <strong>Total Worked Days:</strong>
+                  ${formatLeaveUnits(record.actual_worked_days)} / ${record.working_days ?? "-"}
+                </div>
+
+                <div>
+                  <strong>Absent Days:</strong>
+                  ${formatLeaveUnits(record.absence_days)}
+                </div>
+
+                <div>
+                  <strong>Grace Used / Allowance:</strong>
+                  ${formatLeaveUnits(record.grace_holidays_used)} / ${formatLeaveUnits(record.grace_holidays)}
+                </div>
+
+                <div>
+                  <strong>Charged Leave (Days):</strong>
+                  ${formatLeaveUnits(record.deducted_holidays)}
+                </div>
+
+                <div>
+                  <strong>Total Worked Hours:</strong>
                   ${formatDuration(record.actual_worked_minutes)}
                 </div>
 
@@ -932,7 +827,7 @@ function renderSalaryRecords(records, selectedMonth) {
                   ₹${Number(record.base_salary || 0).toFixed(2)}
                 </div>
 
-      <div>
+                <div>
                   <strong>Leave Deduction:</strong>
                   ₹${Number(record.salary_deduction || 0).toFixed(2)}
                 </div>
@@ -976,8 +871,8 @@ function renderSalaryRecords(records, selectedMonth) {
         </td>
 
       </tr>
-    `,
-    )
+    `;
+    })
     .join("");
 
   container.innerHTML = `
@@ -994,7 +889,7 @@ function renderSalaryRecords(records, selectedMonth) {
         <div>
           <h3>Salary Records</h3>
           <p style="color:var(--text-muted);margin-top:.25rem;">
-            Monthly payroll history and calculation snapshots.
+            Monthly payroll history and calculation snapshots (with Full Day & Half Day counts).
           </p>
         </div>
 
@@ -1023,12 +918,16 @@ function renderSalaryRecords(records, selectedMonth) {
         <table class="table">
           <thead>
             <tr>
-              <th>ID</th>
+              <th style="width:58px;text-align:center;">ID</th>
               <th>Employee</th>
               <th>Month</th>
               <th>Type</th>
-              <th>Worked</th>
+              <th>Full Days</th>
+              <th>Half Days</th>
+              <th>Worked Days</th>
+              <th>Worked Hours</th>
               <th>Monthly Salary</th>
+              <th>Bonus</th>
               <th>Total Salary</th>
               <th>Status</th>
               <th>Action</th>
@@ -1036,15 +935,17 @@ function renderSalaryRecords(records, selectedMonth) {
           </thead>
 
           <tbody id="salary-records-body">
-            ${rows || `<tr><td colspan="9" class="salary-records-empty">No salary records for ${selectedMonth}.</td></tr>`}
+            ${rows || `<tr><td colspan="13" class="salary-records-empty">No salary records for ${selectedMonth}.</td></tr>`}
           </tbody>
         </table>
       </div>
     </div>
   `;
-  document.getElementById("salary-record-search").value = salaryRecordsSearchTerm;
+  document.getElementById("salary-record-search").value =
+    salaryRecordsSearchTerm;
   filterSalaryRecords(salaryRecordsSearchTerm);
 }
+
 function showSalaryRecordDetails(salaryId) {
   const selected = document.getElementById(`salary-detail-${salaryId}`);
 
@@ -1055,20 +956,16 @@ function showSalaryRecordDetails(salaryId) {
   const isAlreadyOpen =
     selected.style.maxHeight !== "0px" && selected.style.maxHeight !== "";
 
-  // Close every detail panel first
   allDetails.forEach((detail) => {
     detail.style.maxHeight = "0px";
     detail.style.opacity = "0";
     detail.style.padding = "0 1rem";
   });
 
-  // If the selected one was already open,
-  // leave everything closed.
   if (isAlreadyOpen) {
     return;
   }
 
-  // Open selected record
   selected.style.maxHeight = "1000px";
   selected.style.opacity = "1";
   selected.style.padding = "0 1rem";
@@ -1100,17 +997,20 @@ function filterSalaryRecords(query) {
     const matches = row.textContent.toLocaleLowerCase().includes(term);
     row.hidden = !matches;
     const details = row.nextElementSibling;
-    if (details?.classList.contains("salary-detail-row")) details.hidden = !matches;
+    if (details?.classList.contains("salary-detail-row"))
+      details.hidden = !matches;
     if (matches) visibleCount += 1;
   });
   let emptyRow = document.getElementById("salary-records-no-results");
   if (!emptyRow && rows.length) {
     emptyRow = document.createElement("tr");
     emptyRow.id = "salary-records-no-results";
-    emptyRow.innerHTML = '<td colspan="9" class="salary-records-empty">No matching salary records.</td>';
+    emptyRow.innerHTML =
+      '<td colspan="12" class="salary-records-empty">No matching salary records.</td>';
     tbody.appendChild(emptyRow);
   }
-  if (emptyRow) emptyRow.hidden = rows.length === 0 || visibleCount > 0 || !term;
+  if (emptyRow)
+    emptyRow.hidden = rows.length === 0 || visibleCount > 0 || !term;
 }
 
 async function loadSalaryRecords(month) {
@@ -1160,18 +1060,16 @@ function saveEditedSalary(empId, month) {
       employee_id: empId,
       month: month,
       total_salary: parseFloat(newSalary),
-      role: role, // Send role to authenticate God Mode edit
+      role: role,
     }),
   })
     .then((res) => res.json())
     .then((data) => {
-      // Use showToast if available, else alert
       if (window.showToast) {
         if (data.message && data.message.includes("success"))
           showToast(data.message, "success");
         else showToast(data.message, "error");
       } else {
-        // Fallback if toast not available
         console.log(data.message);
       }
       fetchSalaryView(empId, month);
@@ -1211,6 +1109,9 @@ async function viewSalaryReceipt(employeeId, month) {
 function renderSalaryReceipt(salary, employee = {}) {
   const target = document.getElementById("salary-receipt-print-area");
   if (!target) return;
+
+  const fullDays = getFullDaysCount(salary);
+  const halfDays = getHalfDaysCount(salary);
 
   const money = (value) =>
     `₹${Number(value || 0).toLocaleString("en-IN", {
@@ -1262,6 +1163,7 @@ function renderSalaryReceipt(salary, employee = {}) {
           <tr><td>${salary.salary_type === "hourly" ? "Assigned Hourly Rate" : "Assigned Base Salary"}</td><td>${money(salary.base_salary)}</td></tr>
           <tr><td>Gross Salary for Period</td><td>${money(salary.gross_salary)}</td></tr>
           <tr><td>Overtime Pay</td><td>${money(salary.overtime_pay)}</td></tr>
+          <tr><td>Attendance Bonus</td><td style="color:var(--success, #10b981);font-weight:600;">+ ${money(salary.bonus_amount || 0)}</td></tr>
           <tr><td>Leave Deduction</td><td>- ${money(deductions)}</td></tr>
           <tr><td>Salary After Holidays</td><td>${money(salary.salary_after_holidays)}</td></tr>
         </tbody>
@@ -1274,7 +1176,10 @@ function renderSalaryReceipt(salary, employee = {}) {
 
       <table class="salary-receipt-table">
         <tbody>
-          <tr><td>Working Days</td><td>${salary.working_days ?? "-"}</td></tr>
+          <tr><td>Scheduled Working Days</td><td>${salary.working_days ?? "-"}</td></tr>
+          <tr><td>Full Days</td><td>${fullDays}</td></tr>
+          <tr><td>Half Days</td><td>${halfDays}</td></tr>
+          <tr><td>Total Worked Days (Full + Half)</td><td>${formatLeaveUnits(salary.actual_worked_days)}</td></tr>
           <tr><td>Worked Time</td><td>${formatDuration(salary.actual_worked_minutes)}</td></tr>
           <tr><td>Charged Leave</td><td>${formatLeaveUnits(salary.deducted_holidays)}</td></tr>
           <tr><td>Grace Leave Used / Allowance</td><td>${formatLeaveUnits(salary.grace_holidays_used)} / ${formatLeaveUnits(salary.grace_holidays)}</td></tr>

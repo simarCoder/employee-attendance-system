@@ -3,9 +3,60 @@ from datetime import datetime, date, timedelta
 import calendar
 from decimal import Decimal, ROUND_HALF_UP
 
+# ---------------------------------------------------------------------------
+# HALF-DAY & FULL-DAY ATTENDANCE THRESHOLDS
+# ---------------------------------------------------------------------------
+# FULL_DAY_MIN_RATIO:
+#   Minimum fraction of daily_hours required for a Full Day (1.0 day).
+#   Default 1.00 means full shift minus employee's late_grace_minutes
+#   (e.g., for an 8h shift with 15m grace, 465 mins = Full Day).
+#   Change to Decimal("0.90") if you want 90% of shift to count as Full Day
+#   even when late_grace_minutes is 0.
+FULL_DAY_MIN_RATIO = Decimal("1.00")
+
+# HALF_DAY_MIN_RATIO:
+#   Minimum fraction of daily_hours required for a Half Day (0.5 day).
+#   Default 0.50 means at least 50% of daily_hours (e.g., 4h for an 8h shift).
+#   Anything below HALF_DAY_MIN_RATIO counts as Absent (0.0 day).
+HALF_DAY_MIN_RATIO = Decimal("0.50")
+
+# ENFORCE_LATE_CHECKIN_HALF_DAY:
+#   If True, punching in after (expected_check_in + late_grace_minutes)
+#   caps a Full Day at a Half Day (0.5) even if total hours are met.
+ENFORCE_LATE_CHECKIN_HALF_DAY = False
+
 
 def _money(value):
     return float(Decimal(str(value or 0)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+
+
+def _day_units(value):
+    """Return int for whole numbers (e.g. 24) and float for half-days (e.g. 24.5)."""
+    quantized = Decimal(str(value or 0)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    if quantized == quantized.to_integral_value():
+        return int(quantized)
+    return float(quantized)
+
+
+def _ensure_salary_cal_columns(conn, cursor):
+    """Ensure full_days and half_days columns exist on salary_cal without breaking existing DBs."""
+    try:
+        cursor.execute("PRAGMA table_info(salary_cal)")
+        existing_cols = {row[1] for row in cursor.fetchall()}
+        altered = False
+        if "full_days" not in existing_cols:
+            cursor.execute("ALTER TABLE salary_cal ADD COLUMN full_days INTEGER DEFAULT 0")
+            altered = True
+        if "half_days" not in existing_cols:
+            cursor.execute("ALTER TABLE salary_cal ADD COLUMN half_days INTEGER DEFAULT 0")
+            altered = True
+        if "bonus_amount" not in existing_cols:
+            cursor.execute("ALTER TABLE salary_cal ADD COLUMN bonus_amount REAL DEFAULT 0")
+            altered = True
+        if altered:
+            conn.commit()
+    except Exception:
+        pass
 
 
 def _parse_working_weekdays(value):
@@ -31,122 +82,167 @@ def _scheduled_dates(start, end, weekdays):
     ]
 
 
-# def get_working_days_for_month(cursor, year, month):
-#     """
-#     Count configured working days for a specific month.
-
-#     0 = Monday
-#     1 = Tuesday
-#     2 = Wednesday
-#     3 = Thursday
-#     4 = Friday
-#     5 = Saturday
-#     6 = Sunday
-#     """
-
-#     cursor.execute("""
-#         SELECT setting_value
-#         FROM system_settings
-#         WHERE setting_key = 'working_days'
-#     """)
-
-#     row = cursor.fetchone()
-
-#     if not row or not row[0]:
-#         working_weekdays = {0, 1, 2, 3, 4}
-#     else:
-#         try:
-#             working_weekdays = {
-#                 int(day.strip())
-#                 for day in row[0].split(",")
-#                 if day.strip()
-#             }
-#         except ValueError:
-#             working_weekdays = {0, 1, 2, 3, 4}
-
-#     days_in_month = calendar.monthrange(year, month)[1]
-
-#     working_days = 0
-
-#     for day_number in range(1, days_in_month + 1):
-#         current_date = date(year, month, day_number)
-
-#         if current_date.weekday() in working_weekdays:
-#             working_days += 1
-
-#     return working_days
+def _parse_time_to_minutes(time_str):
+    """Convert 'HH:MM' or 'HH:MM:SS' into minutes from midnight."""
+    if not time_str:
+        return None
+    parts = str(time_str).strip().split(":")
+    if len(parts) < 2:
+        return None
+    try:
+        hours = int(parts[0])
+        minutes = int(parts[1])
+        return hours * 60 + minutes
+    except (TypeError, ValueError):
+        return None
 
 
-# def get_working_weekdays(cursor):
-#     """Return configured working weekdays as Python weekday integers."""
-#     cursor.execute("""
-#         SELECT setting_value
-#         FROM system_settings
-#         WHERE setting_key = 'working_days'
-#     """)
-#     row = cursor.fetchone()
+def _resolve_worked_minutes(worked_minutes, check_in=None, check_out=None):
+    """Use stored worked_minutes, or compute from check_in and check_out if needed."""
+    if worked_minutes is not None and Decimal(str(worked_minutes or 0)) > 0:
+        return Decimal(str(worked_minutes))
 
-#     if not row or not row[0]:
-#         return {0, 1, 2, 3, 4}
+    in_mins = _parse_time_to_minutes(check_in)
+    out_mins = _parse_time_to_minutes(check_out)
+    if in_mins is None or out_mins is None:
+        return Decimal("0")
 
-#     try:
-#         weekdays = {
-#             int(day.strip())
-#             for day in row[0].split(",")
-#             if day.strip()
-#         }
-#         return weekdays or {0, 1, 2, 3, 4}
-#     except (TypeError, ValueError):
-#         return {0, 1, 2, 3, 4}
+    duration = out_mins - in_mins
+    if duration < 0:
+        duration += 24 * 60
+    return Decimal(str(max(0, duration)))
+
+
+def evaluate_day_attendance(
+    worked_minutes,
+    daily_minutes,
+    check_in=None,
+    check_out=None,
+    expected_check_in=None,
+    late_grace_minutes=0,
+):
+    """
+    Evaluate a single day's attendance and return:
+      - day_credit: Decimal('1.0') for Full Day, Decimal('0.5') for Half Day, Decimal('0.0') for Absent
+      - status: 'Full Day' | 'Half Day' | 'Incomplete' | 'Absent'
+    """
+    daily_minutes = max(Decimal("0"), Decimal(str(daily_minutes or 0)))
+    late_grace = max(Decimal("0"), Decimal(str(late_grace_minutes or 0)))
+
+    # If one punch is present without the other, treat as Incomplete (0.0 credit)
+    if (check_in and not check_out) or (check_out and not check_in):
+        return Decimal("0.0"), "Incomplete"
+
+    effective_worked = _resolve_worked_minutes(worked_minutes, check_in, check_out)
+    if effective_worked <= 0 or daily_minutes <= 0:
+        return Decimal("0.0"), "Absent"
+
+    full_day_threshold = max(
+        daily_minutes * HALF_DAY_MIN_RATIO,
+        (daily_minutes * FULL_DAY_MIN_RATIO) - late_grace,
+    )
+    half_day_threshold = daily_minutes * HALF_DAY_MIN_RATIO
+
+    if effective_worked >= full_day_threshold:
+        day_credit = Decimal("1.0")
+        status = "Full Day"
+    elif effective_worked >= half_day_threshold:
+        day_credit = Decimal("0.5")
+        status = "Half Day"
+    else:
+        return Decimal("0.0"), "Absent"
+
+    # Optional: downgrade Full Day to Half Day if employee punched in after grace window
+    if ENFORCE_LATE_CHECKIN_HALF_DAY and day_credit == Decimal("1.0") and expected_check_in and check_in:
+        expected_in_mins = _parse_time_to_minutes(expected_check_in)
+        actual_in_mins = _parse_time_to_minutes(check_in)
+        if expected_in_mins is not None and actual_in_mins is not None:
+            if actual_in_mins > (expected_in_mins + int(late_grace)):
+                day_credit = Decimal("0.5")
+                status = "Half Day"
+
+    return day_credit, status
 
 
 def calculate_holiday_deduction(
     expected_working_dates,
     attendance_by_date,
     daily_minutes,
-    grace_holidays
+    grace_holidays,
+    expected_check_in=None,
+    late_grace_minutes=0,
 ):
-    """Count a scheduled date as worked when it has any recorded work time.
+    """
+    Score each scheduled date as:
+      - Full Day (1.0 worked day, 0.0 absence)
+      - Half Day (0.5 worked day, 0.5 absence)
+      - Absent / Incomplete (0.0 worked day, 1.0 absence)
 
-    Short shifts still count as worked days. Only a scheduled date without
-    recorded work is an absence; whole-day grace allowance is deducted from
-    those absences before calculating charged leave.
+    Grace holidays are applied against total absence_days (supporting 0.5 increments).
     """
     expected_working_dates = list(expected_working_dates or [])
     attendance_by_date = attendance_by_date or {}
     daily_minutes = max(Decimal("0"), Decimal(str(daily_minutes or 0)))
 
     grace_holidays = max(Decimal("0"), Decimal(str(grace_holidays or 0)))
-    if grace_holidays != grace_holidays.to_integral_value():
-        raise ValueError("Grace holidays must use whole-day increments")
+    if (grace_holidays * 2) != (grace_holidays * 2).to_integral_value():
+        raise ValueError("Grace holidays must use 0.5 or whole-day increments")
 
-    worked_days = 0
+    worked_days = Decimal("0.0")
+    full_days_count = 0
+    half_days_count = 0
+
     for scheduled_date in expected_working_dates:
         date_key = (
             scheduled_date.isoformat()
             if hasattr(scheduled_date, "isoformat")
             else str(scheduled_date)
         )
-        worked_minutes = Decimal(str(attendance_by_date.get(date_key, 0) or 0))
-        if worked_minutes > 0:
-            worked_days += 1
+        entry = attendance_by_date.get(date_key)
 
-    expected_working_days = len(expected_working_dates)
-    absence_days = expected_working_days - worked_days
-    grace_holidays_used = min(int(grace_holidays), absence_days)
-    deducted_holidays = absence_days - grace_holidays_used
+        if isinstance(entry, dict):
+            raw_worked = entry.get("worked_minutes", 0)
+            check_in = entry.get("check_in")
+            check_out = entry.get("check_out")
+        else:
+            raw_worked = entry or 0
+            check_in = None
+            check_out = None
+
+        day_credit, _ = evaluate_day_attendance(
+            worked_minutes=raw_worked,
+            daily_minutes=daily_minutes,
+            check_in=check_in,
+            check_out=check_out,
+            expected_check_in=expected_check_in,
+            late_grace_minutes=late_grace_minutes,
+        )
+
+        worked_days += day_credit
+        if day_credit == Decimal("1.0"):
+            full_days_count += 1
+        elif day_credit == Decimal("0.5"):
+            half_days_count += 1
+
+    expected_working_days = Decimal(str(len(expected_working_dates)))
+    absence_days = max(Decimal("0.0"), expected_working_days - worked_days)
+    grace_holidays_used = min(grace_holidays, absence_days)
+    deducted_holidays = max(Decimal("0.0"), absence_days - grace_holidays_used)
     paid_minutes = max(
         Decimal("0"),
-        Decimal(expected_working_days - deducted_holidays) * daily_minutes,
+        (expected_working_days - deducted_holidays) * daily_minutes,
     )
 
     return {
-        "absence_days": absence_days,
-        "actual_worked_days": worked_days,
-        "grace_holidays_used": grace_holidays_used,
-        "deducted_holidays": deducted_holidays,
+        "full_days": full_days_count,
+        "half_days": half_days_count,
+        "absence_days": _day_units(absence_days),
+        "actual_worked_days": _day_units(worked_days),
+        "grace_holidays_used": _day_units(grace_holidays_used),
+        "deducted_holidays": _day_units(deducted_holidays),
         "paid_minutes": round(float(paid_minutes), 4),
     }
+
 
 def calculate_overtime_pay(
     overtime_minutes,
@@ -166,12 +262,94 @@ def calculate_overtime_pay(
     )
 
 
+def is_eligible_for_attendance_bonus(
+    expected_working_dates,
+    attendance_by_date,
+    daily_hours,
+    expected_check_in=None,
+    expected_check_out=None,
+    late_grace_minutes=0,
+    absence_days=0,
+    grace_holidays_used=0,
+    half_days=0,
+):
+    """
+    Check if employee qualifies for attendance bonus.
+
+    Criteria:
+      1. No holiday taken, not even grace:
+         - At least one scheduled working day exists in period
+         - absence_days == 0
+         - grace_holidays_used == 0
+         - half_days == 0 (no partial worked days)
+      2. Proper arrival and departure on every scheduled working day:
+         - Both check_in and check_out punches must be recorded
+         - check_in <= expected_check_in + late_grace_minutes (no late coming beyond grace)
+         - check_out >= expected_check_out (no early exit)
+         - worked duration >= daily_hours * 60 (shift hours fulfilled or overtimed)
+    """
+    if not expected_working_dates:
+        return False
+
+    if float(absence_days or 0) > 0:
+        return False
+
+    if float(grace_holidays_used or 0) > 0:
+        return False
+
+    if int(half_days or 0) > 0:
+        return False
+
+    req_minutes = int(round(float(daily_hours or 0) * 60))
+    grace_mins = int(late_grace_minutes or 0)
+
+    for scheduled_date in expected_working_dates:
+        date_key = (
+            scheduled_date.isoformat()
+            if hasattr(scheduled_date, "isoformat")
+            else str(scheduled_date)
+        )
+        record = attendance_by_date.get(date_key)
+        if not record or not isinstance(record, dict):
+            return False
+
+        check_in = record.get("check_in")
+        check_out = record.get("check_out")
+        if not check_in or not check_out:
+            return False
+
+        # Grace-assisted arrival check (no late coming beyond grace)
+        if expected_check_in:
+            in_mins = _parse_time_to_minutes(check_in)
+            exp_in_mins = _parse_time_to_minutes(expected_check_in)
+            if in_mins is not None and exp_in_mins is not None:
+                if in_mins > (exp_in_mins + grace_mins):
+                    return False
+
+        # Early exit check (no early exiting)
+        if expected_check_out:
+            out_mins = _parse_time_to_minutes(check_out)
+            exp_out_mins = _parse_time_to_minutes(expected_check_out)
+            if out_mins is not None and exp_out_mins is not None:
+                if out_mins < exp_out_mins:
+                    return False
+
+        # Shift duration check (proper or overtimed)
+        if req_minutes > 0:
+            eff_worked = int(_resolve_worked_minutes(record.get("worked_minutes"), check_in, check_out))
+            if eff_worked < req_minutes:
+                return False
+
+    return True
+
+
 def generate_salary(employee_id, month, role=None):
     """
     Generate or update the monthly salary record.
 
     The record stores a historical snapshot of the employee's
-    configuration and attendance calculation for that month.
+    configuration and attendance calculation (including Full Days
+    and Half Days) for that month.
 
     Overtime is informational only and never increases salary.
     """
@@ -180,6 +358,8 @@ def generate_salary(employee_id, month, role=None):
     cursor = conn.cursor()
 
     try:
+        _ensure_salary_cal_columns(conn, cursor)
+
         cursor.execute("""
             SELECT salary_id, locked, created_at
             FROM salary_cal
@@ -199,7 +379,10 @@ def generate_salary(employee_id, month, role=None):
                 overtime_rate,
                 salary_type,
                 COALESCE(grace_holidays, 0),
-                working_weekdays
+                working_weekdays,
+                expected_check_in,
+                COALESCE(late_grace_minutes, 0),
+                expected_check_out
             FROM employees
             WHERE employee_id = ?
         """, (employee_id,))
@@ -218,7 +401,10 @@ def generate_salary(employee_id, month, role=None):
             overtime_rate,
             salary_type,
             grace_holidays,
-            working_weekdays
+            working_weekdays,
+            expected_check_in,
+            late_grace_minutes,
+            expected_check_out,
         ) = employee
 
         monthly_salary = float(monthly_salary or 0)
@@ -227,7 +413,8 @@ def generate_salary(employee_id, month, role=None):
         overtime_rate = float(overtime_rate or 1.0)
         salary_type = salary_type or "monthly"
         grace_holidays = max(0.0, float(grace_holidays or 0))
-        
+        late_grace_minutes = int(late_grace_minutes or 0)
+
         try:
             year, month_num = map(int, month.split("-"))
             if month_num < 1 or month_num > 12:
@@ -253,7 +440,8 @@ def generate_salary(employee_id, month, role=None):
                 date,
                 COALESCE(worked_minutes, 0),
                 COALESCE(overtime_minutes, 0),
-                check_out
+                check_out,
+                check_in
             FROM attendance
             WHERE employee_id = ?
               AND date LIKE ?
@@ -273,15 +461,18 @@ def generate_salary(employee_id, month, role=None):
 
         today = date.today()
         attendance_by_date = {}
-        for attendance_date, worked_minutes, overtime_for_date, check_out in attendance_rows:
-            attendance_by_date[attendance_date] = int(worked_minutes or 0)
+        for attendance_date, worked_minutes, overtime_for_date, check_out, check_in in attendance_rows:
+            attendance_by_date[attendance_date] = {
+                "worked_minutes": int(worked_minutes or 0),
+                "check_in": check_in,
+                "check_out": check_out,
+            }
 
         if month_start > today:
             period_end = month_start - timedelta(days=1)
         elif month_end <= today:
             period_end = month_end
         else:
-            # Do not assess today's shift until it has been checked out.
             today_row = next(
                 (row for row in attendance_rows if row[0] == today.isoformat()),
                 None,
@@ -298,8 +489,12 @@ def generate_salary(employee_id, month, role=None):
             attendance_by_date=attendance_by_date,
             daily_minutes=daily_hours * 60.0,
             grace_holidays=grace_holidays,
+            expected_check_in=expected_check_in,
+            late_grace_minutes=late_grace_minutes,
         )
 
+        full_days = holiday_metrics["full_days"]
+        half_days = holiday_metrics["half_days"]
         absence_days = holiday_metrics["absence_days"]
         actual_worked_days = holiday_metrics["actual_worked_days"]
         grace_holidays_used = holiday_metrics["grace_holidays_used"]
@@ -319,17 +514,12 @@ def generate_salary(employee_id, month, role=None):
                 * Decimal(str(deducted_holidays))
             )
         else:
-            # Monthly salaried staff accrue one calendar-day rate per day of
-            # the month. Scheduled working days are still used to determine
-            # absences, but they do not set the monetary leave deduction rate.
             monthly_amount = Decimal(str(monthly_salary))
             daily_rate = monthly_amount / Decimal(days_in_month)
             hourly_rate = (
                 float(daily_rate / Decimal(str(daily_hours)))
                 if daily_hours > 0 else 0.0
             )
-            # A fixed monthly salary is paid in full. Attendance affects it
-            # only through chargeable full-day absences below.
             gross_amount = monthly_amount
             deduction_amount = daily_rate * Decimal(str(deducted_holidays))
 
@@ -340,14 +530,35 @@ def generate_salary(employee_id, month, role=None):
             Decimal(str(gross_salary)) - Decimal(str(salary_deduction))
         )
 
-        # Keep the assigned salary or hourly rate as the base amount. Pay after
-        # attendance deductions is reported independently above.
+        # Attendance bonus evaluation
+        cursor.execute("SELECT setting_value FROM system_settings WHERE setting_key = 'attendance_bonus_amount'")
+        bonus_setting_row = cursor.fetchone()
+        system_bonus_val = (
+            float(bonus_setting_row[0])
+            if bonus_setting_row and bonus_setting_row[0]
+            else 1000.0
+        )
+
+        bonus_eligible = is_eligible_for_attendance_bonus(
+            expected_working_dates=period_working_dates,
+            attendance_by_date=attendance_by_date,
+            daily_hours=daily_hours,
+            expected_check_in=expected_check_in,
+            expected_check_out=expected_check_out,
+            late_grace_minutes=late_grace_minutes,
+            absence_days=absence_days,
+            grace_holidays_used=grace_holidays_used,
+            half_days=half_days,
+        )
+        bonus_amount = _money(system_bonus_val) if bonus_eligible else 0.0
+
         base_salary = monthly_salary
-
-        # Overtime is informational only. It never increases salary.
         overtime_pay = 0.0
-
-        total_salary = _money(Decimal(str(salary_after_holidays)) + Decimal(str(overtime_pay)))
+        total_salary = _money(
+            Decimal(str(salary_after_holidays))
+            + Decimal(str(overtime_pay))
+            + Decimal(str(bonus_amount))
+        )
 
         last_day = calendar.monthrange(year, month_num)[1]
         last_date = datetime(
@@ -397,6 +608,8 @@ def generate_salary(employee_id, month, role=None):
                     expected_monthly_minutes = ?,
                     actual_worked_minutes = ?,
                     actual_worked_days = ?,
+                    full_days = ?,
+                    half_days = ?,
                     total_hours = ?,
                     overtime_minutes = ?,
                     grace_holidays_snapshot = ?,
@@ -407,6 +620,7 @@ def generate_salary(employee_id, month, role=None):
                     hourly_rate_snapshot = ?,
                     base_salary = ?,
                     overtime_pay = ?,
+                    bonus_amount = ?,
                     total_salary = ?,
                     locked = ?,
                     created_at = ?,
@@ -425,6 +639,8 @@ def generate_salary(employee_id, month, role=None):
                 expected_monthly_minutes,
                 actual_worked_minutes,
                 actual_worked_days,
+                full_days,
+                half_days,
                 total_hours,
                 overtime_minutes,
                 grace_holidays,
@@ -435,6 +651,7 @@ def generate_salary(employee_id, month, role=None):
                 hourly_rate_snapshot,
                 round(base_salary, 2),
                 overtime_pay,
+                bonus_amount,
                 total_salary,
                 lock_value,
                 created_at,
@@ -459,6 +676,8 @@ def generate_salary(employee_id, month, role=None):
                     expected_monthly_minutes,
                     actual_worked_minutes,
                     actual_worked_days,
+                    full_days,
+                    half_days,
                     total_hours,
                     overtime_minutes,
                     grace_holidays_snapshot,
@@ -469,12 +688,13 @@ def generate_salary(employee_id, month, role=None):
                     hourly_rate_snapshot,
                     base_salary,
                     overtime_pay,
+                    bonus_amount,
                     total_salary,
                     locked,
                     created_at,
                     updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 employee_id,
                 month,
@@ -490,6 +710,8 @@ def generate_salary(employee_id, month, role=None):
                 expected_monthly_minutes,
                 actual_worked_minutes,
                 actual_worked_days,
+                full_days,
+                half_days,
                 total_hours,
                 overtime_minutes,
                 grace_holidays,
@@ -500,6 +722,7 @@ def generate_salary(employee_id, month, role=None):
                 hourly_rate_snapshot,
                 round(base_salary, 2),
                 overtime_pay,
+                bonus_amount,
                 total_salary,
                 lock_value,
                 now,
@@ -520,6 +743,8 @@ def generate_salary(employee_id, month, role=None):
             "expected_monthly_minutes": expected_monthly_minutes,
             "actual_worked_minutes": actual_worked_minutes,
             "actual_worked_days": actual_worked_days,
+            "full_days": full_days,
+            "half_days": half_days,
             "total_hours": total_hours,
             "overtime_minutes": overtime_minutes,
             "grace_holidays": grace_holidays,
@@ -533,6 +758,7 @@ def generate_salary(employee_id, month, role=None):
             "salary_deduction": round(salary_deduction, 2),
             "salary_after_holidays": round(salary_after_holidays, 2),
             "overtime_pay": round(overtime_pay, 2),
+            "bonus_amount": bonus_amount,
             "total_salary": total_salary,
             "locked": lock_value
         }
@@ -542,9 +768,47 @@ def generate_salary(employee_id, month, role=None):
         conn.close()
 
 
+def _normalize_day_counts(record_dict):
+    """Ensure full_days and half_days are always populated integers even for legacy rows."""
+    worked = Decimal(str(record_dict.get("actual_worked_days") or 0))
+    full_days = record_dict.get("full_days")
+    half_days = record_dict.get("half_days")
+
+    if full_days is None and half_days is None:
+        # Derive sensible default from actual_worked_days if legacy record had NULLs
+        if worked != worked.to_integral_value():
+            half_days = 1
+            full_days = max(0, int(worked - Decimal("0.5")))
+        else:
+            half_days = 0
+            full_days = max(0, int(worked))
+    else:
+        full_days = int(full_days or 0)
+        half_days = int(half_days or 0)
+        # If both were 0 on a legacy row that had actual_worked_days > 0, infer from worked
+        if full_days == 0 and half_days == 0 and worked > 0:
+            if worked != worked.to_integral_value():
+                half_days = 1
+                full_days = max(0, int(worked - Decimal("0.5")))
+            else:
+                full_days = int(worked)
+
+    record_dict["full_days"] = full_days
+    record_dict["half_days"] = half_days
+    record_dict["actual_worked_days"] = _day_units(worked)
+    record_dict["absence_days"] = _day_units(record_dict.get("absence_days") or 0)
+    record_dict["grace_holidays"] = _day_units(record_dict.get("grace_holidays") or 0)
+    record_dict["grace_holidays_used"] = _day_units(record_dict.get("grace_holidays_used") or 0)
+    record_dict["deducted_holidays"] = _day_units(record_dict.get("deducted_holidays") or 0)
+    record_dict["bonus_amount"] = _money(record_dict.get("bonus_amount") or 0)
+    return record_dict
+
+
 def get_salary(employee_id, month):
     conn = get_connection()
     cursor = conn.cursor()
+
+    _ensure_salary_cal_columns(conn, cursor)
 
     cursor.execute("""
         SELECT
@@ -563,6 +827,8 @@ def get_salary(employee_id, month):
             expected_monthly_minutes,
             actual_worked_minutes,
             actual_worked_days,
+            full_days,
+            half_days,
             total_hours,
             overtime_minutes,
             grace_holidays_snapshot,
@@ -573,6 +839,7 @@ def get_salary(employee_id, month):
             hourly_rate_snapshot,
             base_salary,
             overtime_pay,
+            bonus_amount,
             total_salary,
             locked,
             created_at,
@@ -605,6 +872,8 @@ def get_salary(employee_id, month):
         "expected_monthly_minutes",
         "actual_worked_minutes",
         "actual_worked_days",
+        "full_days",
+        "half_days",
         "total_hours",
         "overtime_minutes",
         "grace_holidays",
@@ -615,13 +884,14 @@ def get_salary(employee_id, month):
         "hourly_rate",
         "base_salary",
         "overtime_pay",
+        "bonus_amount",
         "total_salary",
         "locked",
         "created_at",
         "updated_at",
     ]
 
-    return dict(zip(columns, row))
+    return _normalize_day_counts(dict(zip(columns, row)))
 
 
 def get_salary_records(employee_id=None, month=None):
@@ -629,6 +899,8 @@ def get_salary_records(employee_id=None, month=None):
 
     conn = get_connection()
     cursor = conn.cursor()
+
+    _ensure_salary_cal_columns(conn, cursor)
 
     query = """
         SELECT
@@ -647,6 +919,8 @@ def get_salary_records(employee_id=None, month=None):
             expected_monthly_minutes,
             actual_worked_minutes,
             actual_worked_days,
+            full_days,
+            half_days,
             total_hours,
             overtime_minutes,
             grace_holidays_snapshot,
@@ -657,6 +931,7 @@ def get_salary_records(employee_id=None, month=None):
             hourly_rate_snapshot,
             base_salary,
             overtime_pay,
+            bonus_amount,
             total_salary,
             locked,
             created_at,
@@ -699,6 +974,8 @@ def get_salary_records(employee_id=None, month=None):
         "expected_monthly_minutes",
         "actual_worked_minutes",
         "actual_worked_days",
+        "full_days",
+        "half_days",
         "total_hours",
         "overtime_minutes",
         "grace_holidays",
@@ -709,31 +986,30 @@ def get_salary_records(employee_id=None, month=None):
         "hourly_rate",
         "base_salary",
         "overtime_pay",
+        "bonus_amount",
         "total_salary",
         "locked",
         "created_at",
         "updated_at",
     ]
 
-    return [dict(zip(columns, row)) for row in rows]
+    return [_normalize_day_counts(dict(zip(columns, row))) for row in rows]
 
 
 def update_salary_details(employee_id, month, new_salary, role):
     conn = get_connection()
     cursor = conn.cursor()
-    
-    # Check current lock status
+
     cursor.execute("SELECT locked FROM salary_cal WHERE employee_id = ? AND month = ?", (employee_id, month))
     row = cursor.fetchone()
-    
+
     if not row:
         cursor.close()
         conn.close()
         raise Exception("Salary record not found")
-        
+
     is_locked = row[0]
-    
-    # GOD MODE LOGIC: If role is 'head', allow update even if locked.
+
     if is_locked == 1 and role != 'head':
         cursor.close()
         conn.close()
@@ -751,7 +1027,7 @@ def update_salary_details(employee_id, month, new_salary, role):
         employee_id,
         month
     ))
-    
+
     conn.commit()
     cursor.close()
     conn.close()

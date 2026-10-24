@@ -23,7 +23,8 @@ ENV/
 # ==============================
 # SQLite / local databases
 # ==============================
-
+db/
+*./db
 *.db
 *.sqlite
 *.sqlite3

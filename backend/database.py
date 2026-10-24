@@ -22,10 +22,14 @@ def get_connection():
     conn = sqlite3.connect(
         DB_PATH,
         check_same_thread=False,
+        timeout=30.0,
     )
 
     conn.execute("PRAGMA foreign_keys = ON;")
     conn.execute("PRAGMA busy_timeout = 30000;")
+    conn.execute("PRAGMA synchronous = NORMAL;")
+    conn.execute("PRAGMA cache_size = -64000;")  # 64MB RAM cache
+    conn.execute("PRAGMA temp_store = MEMORY;")
 
     return conn
 
@@ -260,6 +264,7 @@ def employee_db():
             hourly_rate_snapshot REAL,
             base_salary REAL,
             overtime_pay REAL DEFAULT 0,
+            bonus_amount REAL DEFAULT 0,
             total_salary REAL,
 
             locked INTEGER DEFAULT 0,
@@ -293,6 +298,7 @@ def employee_db():
         "paid_minutes": "REAL DEFAULT 0",
         "base_salary": "REAL",
         "overtime_pay": "REAL DEFAULT 0",
+        "bonus_amount": "REAL DEFAULT 0",
         "created_at": "TEXT",
         "updated_at": "TEXT",
     }
@@ -359,6 +365,7 @@ def employee_db():
             ),
             base_salary = COALESCE(base_salary, total_salary),
             overtime_pay = COALESCE(overtime_pay, 0),
+            bonus_amount = COALESCE(bonus_amount, 0),
             overtime_minutes = COALESCE(overtime_minutes, 0),
             created_at = COALESCE(created_at, CURRENT_TIMESTAMP),
             updated_at = COALESCE(updated_at, CURRENT_TIMESTAMP)
@@ -455,6 +462,12 @@ def employee_db():
     cursor.execute("""
         INSERT OR IGNORE INTO system_settings (setting_key, setting_value)
         VALUES ('demo_mode', 'true')
+    """)
+
+    # Seed Default Attendance Bonus Amount (1000)
+    cursor.execute("""
+        INSERT OR IGNORE INTO system_settings (setting_key, setting_value)
+        VALUES ('attendance_bonus_amount', '1000')
     """)
 
     # =========================

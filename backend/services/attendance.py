@@ -131,9 +131,20 @@ def time_to_minutes(time_str):
     if not time_str:
         return None
 
-    dt = datetime.strptime(time_str, "%H:%M:%S")
+    time_str = str(time_str).strip()
+    parts = time_str.split(":")
+    if len(parts) >= 2:
+        try:
+            return int(parts[0]) * 60 + int(parts[1])
+        except (TypeError, ValueError):
+            pass
 
-    return dt.hour * 60 + dt.minute
+    try:
+        dt = datetime.strptime(time_str, "%H:%M:%S")
+        return dt.hour * 60 + dt.minute
+    except ValueError:
+        dt = datetime.strptime(time_str, "%H:%M")
+        return dt.hour * 60 + dt.minute
 
 
 def minutes_to_hours(minutes):
@@ -822,6 +833,96 @@ def get_attendance_by_range(start_date, end_date):
     )
 
     result.reverse()
+
+    return result
+
+def get_pending_attendance():
+    """
+    Return attendance records where exactly one punch is missing.
+
+    Pending means:
+        - Check-in exists but check-out is missing
+        OR
+        - Check-out exists but check-in is missing
+
+    Completely absent employees are not included because there is
+    no attendance record to edit.
+    """
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT
+            a.attendance_id,
+            a.employee_id,
+            e.name,
+            e.role,
+            a.date,
+            a.check_in,
+            a.check_out,
+            a.worked_hours,
+            a.worked_minutes,
+            a.locked
+        FROM attendance a
+        INNER JOIN employees e
+            ON e.employee_id = a.employee_id
+        WHERE
+            (
+                a.check_in IS NOT NULL
+                AND a.check_out IS NULL
+            )
+            OR
+            (
+                a.check_in IS NULL
+                AND a.check_out IS NOT NULL
+            )
+        ORDER BY
+            a.date DESC,
+            e.name ASC
+    """)
+
+    rows = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    result = []
+
+    for row in rows:
+        (
+            attendance_id,
+            employee_id,
+            name,
+            role,
+            attendance_date,
+            check_in,
+            check_out,
+            worked_hours,
+            worked_minutes,
+            locked
+        ) = row
+
+        if check_in and not check_out:
+            missing_punch = "check_out"
+        elif check_out and not check_in:
+            missing_punch = "check_in"
+        else:
+            continue
+
+        result.append({
+            "attendance_id": attendance_id,
+            "employee_id": employee_id,
+            "name": name,
+            "role": role,
+            "date": attendance_date,
+            "check_in": check_in,
+            "check_out": check_out,
+            "worked_hours": worked_hours,
+            "worked_minutes": worked_minutes,
+            "locked": bool(locked),
+            "missing_punch": missing_punch
+        })
 
     return result
 

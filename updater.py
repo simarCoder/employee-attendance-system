@@ -25,11 +25,50 @@ RELEASE_API = (
 PACKAGE_ASSET = "HR_Management_System-win64.zip"
 APP_EXECUTABLE = "HR_Management_System.exe"
 UPDATER_EXECUTABLE = "HR_Management_System_Updater.exe"
-REQUEST_TIMEOUT_SECONDS = 8
+REQUEST_TIMEOUT_SECONDS = 30
 
 
 class UpdateError(Exception):
     pass
+
+
+def clean_release_notes(raw_notes):
+    """
+    Sanitize GitHub release notes to remove technical links, commit hashes,
+    and GitHub repository references, leaving only clean bullet points for clients.
+    """
+    if not raw_notes or not raw_notes.strip():
+        return "• Performance optimizations and stability improvements.\n• Bug fixes and payroll updates."
+
+    cleaned_lines = []
+    for line in raw_notes.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        # Remove GitHub headers and technical lines
+        if line.startswith("## What's Changed") or line.startswith("# What's Changed") or line.startswith("## Release"):
+            continue
+        if "full changelog" in line.lower():
+            continue
+        if "github.com" in line or "http://" in line or "https://" in line:
+            line = re.sub(r"\s+in\s+https?://\S+", "", line)
+            line = re.sub(r"\s+by\s+@\S+", "", line)
+            line = re.sub(r"https?://\S+", "", line).strip()
+            if not line or line in ("*", "-", "•"):
+                continue
+
+        # Clean bullet formatting
+        if line.startswith("* ") or line.startswith("- "):
+            line = "• " + line[2:].strip()
+        elif not line.startswith("• ") and not line.startswith("v") and not line.endswith(":"):
+            line = "• " + line
+
+        cleaned_lines.append(line)
+
+    if not cleaned_lines:
+        return "• Performance optimizations and stability improvements.\n• Bug fixes and payroll updates."
+
+    return "\n".join(cleaned_lines)
 
 
 def _version_tuple(value):
@@ -98,7 +137,7 @@ def _download_and_stage(release, install_dir, progress, cancelled):
                 while True:
                     if cancelled.is_set():
                         raise UpdateError("Update cancelled")
-                    chunk = response.read(1024 * 256)
+                    chunk = response.read(1024 * 512)
                     if not chunk:
                         break
                     output.write(chunk)
@@ -197,11 +236,13 @@ class UpdatePromptApi:
 
     def _on_progress(self, downloaded, total):
         percent = min(99, int(downloaded * 100 / total)) if total else 0
-        message = (
-            f"Downloading update… {percent}%"
-            if total
-            else f"Downloaded {downloaded // (1024 * 1024)} MB…"
-        )
+        if total:
+            dl_mb = downloaded / (1024 * 1024)
+            tot_mb = total / (1024 * 1024)
+            message = f"Downloading update… {dl_mb:.1f} MB / {tot_mb:.1f} MB ({percent}%)"
+        else:
+            dl_mb = downloaded / (1024 * 1024)
+            message = f"Downloading update… {dl_mb:.1f} MB"
         self._set_state(
             message=message,
             percent=percent,
@@ -292,10 +333,11 @@ def make_update_prompt(release, main_url):
         return None, None
 
     api = UpdatePromptApi(release, install_dir, sys.executable, main_url)
-    notes = release["notes"] or "Performance improvements and bug fixes."
+    raw_notes = release.get("notes") or ""
+    notes = clean_release_notes(raw_notes)
     # JSON encoding makes release notes safe to place in the page as text.
     notes_json = (
-        json.dumps(notes[:500], ensure_ascii=True)
+        json.dumps(notes[:800], ensure_ascii=True)
         .replace("<", "\\u003c")
         .replace(">", "\\u003e")
         .replace("&", "\\u0026")
@@ -304,29 +346,220 @@ def make_update_prompt(release, main_url):
     html = f"""<!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-*{{box-sizing:border-box}} html{{background:#030712}} body{{margin:0;background:#030712;color:#f9fafb;font-family:'Segoe UI',Arial,sans-serif;opacity:0;transition:opacity .16s ease}}
-html.ready body{{opacity:1}} main{{padding:25px 29px 22px}} .eyebrow{{color:#a5b4fc;font-size:10px;font-weight:700;letter-spacing:1.4px}}
-h1{{font-size:23px;line-height:1.2;margin:9px 0 5px;color:#f9fafb}} .sub{{color:#9ca3af;font-size:13px}}
-.card{{margin-top:18px;padding:14px 16px;background:#111827;border:1px solid #263244;border-radius:12px;height:126px;overflow:auto}}
-.card strong{{font-size:12px;color:#f9fafb}} .notes{{margin-top:8px;color:#cbd5e1;font-size:12px;line-height:1.5;white-space:pre-wrap}}
-.status{{margin:15px 0 8px;color:#cbd5e1;font-size:11px;min-height:16px}}
-.track{{height:7px;background:#1f2937;border-radius:99px;overflow:hidden}} .fill{{width:0;height:100%;background:#818cf8;border-radius:99px;transition:width .2s}}
-.buttons{{display:flex;justify-content:flex-end;gap:9px;margin-top:17px}}
-button{{border:0;border-radius:8px;padding:10px 18px;font:600 12px 'Segoe UI',Arial;cursor:pointer;transition:background .15s ease,opacity .15s ease}}
-.primary{{background:#6366f1;color:white}} .primary:hover{{background:#4f46e5}}
-.secondary{{background:#1f2937;color:#e5e7eb}} .secondary:hover{{background:#374151}} button:disabled{{opacity:.48;cursor:default}}
-.fill.indeterminate{{width:35%;animation:slide 1.1s ease-in-out infinite alternate}}
-@keyframes slide{{from{{transform:translateX(-55%)}}to{{transform:translateX(190%)}}}}
-</style></head><body><main>
-<div class="eyebrow">OPERON &nbsp;/&nbsp; SOFTWARE UPDATE</div>
-<h1>A new version is ready</h1>
-<div class="sub">HR Management System &nbsp;·&nbsp; Version <span id="version"></span></div>
-<section class="card"><strong>What’s new</strong><div class="notes" id="notes"></div></section>
-<div class="status" id="status">Would you like to install this update now?</div>
-<div class="track"><div class="fill" id="fill"></div></div>
-<div class="buttons"><button class="secondary" id="later" onclick="continueApp()" disabled>Later</button>
-<button class="primary" id="update" onclick="startUpdate()" disabled>Update now</button></div>
-</main><script>
+* {{ box-sizing: border-box; margin: 0; padding: 0; }}
+html {{ background: #000000; height: 100%; }}
+body {{
+  margin: 0;
+  background: #000000;
+  color: #f5f5f5;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  height: 100%;
+  overflow: hidden;
+  user-select: none;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}}
+html.ready body {{ opacity: 1; }}
+
+main {{
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 22px 26px 20px;
+}}
+
+.header {{
+  margin-bottom: 12px;
+}}
+
+.pill-badge {{
+  display: inline-flex;
+  align-items: center;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  color: #38bdf8;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 99px;
+  margin-bottom: 8px;
+}}
+
+h1 {{
+  font-size: 20px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.01em;
+  margin-bottom: 4px;
+}}
+
+.sub {{
+  color: #888888;
+  font-size: 12px;
+  font-weight: 500;
+}}
+
+.sub strong {{
+  color: #e5e5e5;
+  font-weight: 600;
+}}
+
+.card {{
+  flex: 1;
+  background: #080808;
+  border: 1px solid #222222;
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  margin-bottom: 12px;
+}}
+
+.card-title {{
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #a3a3a3;
+  margin-bottom: 7px;
+}}
+
+.notes {{
+  flex: 1;
+  overflow-y: auto;
+  color: #d4d4d4;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  padding-right: 4px;
+}}
+
+.notes::-webkit-scrollbar {{
+  width: 5px;
+}}
+.notes::-webkit-scrollbar-track {{
+  background: transparent;
+}}
+.notes::-webkit-scrollbar-thumb {{
+  background: #262626;
+  border-radius: 4px;
+}}
+.notes::-webkit-scrollbar-thumb:hover {{
+  background: #383838;
+}}
+
+.status {{
+  font-size: 11px;
+  font-weight: 500;
+  color: #999999;
+  margin-bottom: 8px;
+  min-height: 16px;
+}}
+
+.track {{
+  height: 6px;
+  background: #141414;
+  border: 1px solid #222222;
+  border-radius: 99px;
+  overflow: hidden;
+  margin-bottom: 14px;
+}}
+
+.fill {{
+  width: 0%;
+  height: 100%;
+  background: #38bdf8;
+  border-radius: 99px;
+  transition: width 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}}
+
+.fill.indeterminate {{
+  width: 35%;
+  animation: slide 1.1s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
+}}
+
+@keyframes slide {{
+  from {{ transform: translateX(-50%); }}
+  to {{ transform: translateX(200%); }}
+}}
+
+.buttons {{
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}}
+
+button {{
+  border: 1px solid transparent;
+  border-radius: 7px;
+  padding: 8px 18px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}}
+
+button:active {{
+  transform: scale(0.96);
+}}
+
+.primary {{
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #0369a1;
+  box-shadow: 0 1px 6px rgba(2, 132, 199, 0.35);
+}}
+
+.primary:hover {{
+  background: #0369a1;
+  border-color: #075985;
+}}
+
+.secondary {{
+  background: #121212;
+  color: #a3a3a3;
+  border-color: #262626;
+}}
+
+.secondary:hover {{
+  background: #1c1c1c;
+  color: #ffffff;
+  border-color: #383838;
+}}
+
+button:disabled {{
+  opacity: 0.45;
+  cursor: default;
+  transform: none !important;
+}}
+</style>
+</head>
+<body>
+<main>
+  <div class="header">
+    <div class="pill-badge">Operon &middot; Update Available</div>
+    <h1>A new version is ready</h1>
+    <div class="sub">HR Management System &nbsp;&middot;&nbsp; Version <strong id="version"></strong></div>
+  </div>
+
+  <section class="card">
+    <div class="card-title">What's New in this Version</div>
+    <div class="notes" id="notes"></div>
+  </section>
+
+  <div class="status" id="status">Would you like to install this update now?</div>
+  <div class="track"><div class="fill" id="fill"></div></div>
+
+  <div class="buttons">
+    <button class="secondary" id="later" onclick="continueApp()" disabled>Later</button>
+    <button class="primary" id="update" onclick="startUpdate()" disabled>Update now</button>
+  </div>
+</main>
+<script>
 const releaseVersion={version_json}, releaseNotes={notes_json};
 document.getElementById('version').textContent=releaseVersion;
 document.getElementById('notes').textContent=releaseNotes;
@@ -356,7 +589,7 @@ function showApiError(error){{
 async function startUpdate(){{
  if(!apiReady||!uiReady||updateStarted) return;
  updateStarted=true; updateButton.disabled=true; laterButton.textContent='Cancel';
- laterButton.onclick=cancelUpdate; laterButton.disabled=false; statusLabel.textContent='Starting a secure background download…';
+ laterButton.onclick=cancelUpdate; laterButton.disabled=false; statusLabel.textContent='Starting download…';
  progressFill.style.width='0%'; progressFill.classList.add('indeterminate');
  try{{
   await window.pywebview.api.start_update();

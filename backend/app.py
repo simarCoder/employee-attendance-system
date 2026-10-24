@@ -4,7 +4,7 @@ import signal
 import time
 import threading
 import webbrowser
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import (
     Flask,
     request,
@@ -55,7 +55,8 @@ from backend.services.attendance import (
     check_out,
     get_attendance_by_employee,
     get_attendance_by_date,
-    get_attendance_by_range
+    get_attendance_by_range,
+    get_pending_attendance
 )
 
 # ---SALARY IMPORT---
@@ -83,7 +84,9 @@ from backend.services.settings import (
     get_demo_mode_status, # NEW
     update_demo_mode,      # NEW
     get_secureye_config,
-    update_secureye_config
+    update_secureye_config,
+    get_attendance_bonus_amount,
+    update_attendance_bonus_amount
 )
 
 
@@ -141,6 +144,8 @@ app.config["SECRET_KEY"] = SESSION_SECRET
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_SECURE"] = False
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(minutes=100)
+app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 86400 * 7  # 7-day browser asset caching
 
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'UPLOADS')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -469,6 +474,7 @@ def login_route():
             }), 403
 
     session.clear()
+    session.permanent = True
 
     session["user_id"] = user_id
     session["role"] = role
@@ -757,6 +763,130 @@ def attendance_view_route(employee_id):
         })
 
     return jsonify(result)
+
+
+@app.route("/attendance/pending", methods=["GET"])
+def pending_attendance_route():
+    try:
+        records = get_pending_attendance()
+
+        return jsonify({
+            "success": True,
+            "count": len(records),
+            "records": records
+        })
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        }), 500
+        
+        
+@app.route("/attendance/pending/update", methods=["POST"])
+def update_pending_attendance_route():
+    data = request.json or {}
+
+    attendance_id = data.get("attendance_id")
+    punch_type = data.get("punch_type")
+    manual_time = data.get("manual_time")
+    role = data.get("role")
+
+    if role not in ["head", "admin"]:
+        return jsonify({
+            "success": False,
+            "message": "Unauthorized: Only Admin/Head can edit pending attendance."
+        }), 403
+
+    if not attendance_id:
+        return jsonify({
+            "success": False,
+            "message": "Attendance ID is required."
+        }), 400
+
+    if punch_type not in ["check_in", "check_out"]:
+        return jsonify({
+            "success": False,
+            "message": "Invalid punch type."
+        }), 400
+
+    if not manual_time:
+        return jsonify({
+            "success": False,
+            "message": "Time is required."
+        }), 400
+
+    try:
+        # Make sure the record is actually pending and
+        # that the requested punch is the missing one.
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT
+                employee_id,
+                date,
+                check_in,
+                check_out
+            FROM attendance
+            WHERE attendance_id = ?
+        """, (attendance_id,))
+
+        record = cursor.fetchone()
+
+        cursor.close()
+        conn.close()
+
+        if not record:
+            return jsonify({
+                "success": False,
+                "message": "Attendance record not found."
+            }), 404
+
+        employee_id, attendance_date, check_in_time, check_out_time = record
+
+        if punch_type == "check_in":
+            if check_in_time is not None:
+                return jsonify({
+                    "success": False,
+                    "message": "Check-in already exists for this record."
+                }), 400
+
+            check_in(
+                employee_id,
+                custom_time=manual_time,
+                target_date=attendance_date
+            )
+
+        else:
+            if check_out_time is not None:
+                return jsonify({
+                    "success": False,
+                    "message": "Check-out already exists for this record."
+                }), 400
+
+            if check_in_time is None:
+                return jsonify({
+                    "success": False,
+                    "message": "Cannot add check-out without check-in."
+                }), 400
+
+            check_out(
+                employee_id,
+                custom_time=manual_time,
+                target_date=attendance_date
+            )
+
+        return jsonify({
+            "success": True,
+            "message": "Pending attendance updated successfully."
+        })
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        }), 400
 
 # -------------------------
 # SALARY ROUTES
@@ -1089,6 +1219,23 @@ def update_hours_route():
     try:
         update_working_hours(request.json.get("hours"))
         return jsonify({"message": "Working hours updated"})
+    except Exception as e:
+        return jsonify({"message": str(e)}), 400
+
+@app.route("/settings/bonus", methods=["GET"])
+def get_bonus_route():
+    try:
+        bonus = get_attendance_bonus_amount()
+        return jsonify({"bonus_amount": bonus})
+    except Exception as e:
+        return jsonify({"message": str(e)}), 500
+
+@app.route("/settings/bonus", methods=["POST"])
+def update_bonus_route():
+    try:
+        amt = request.json.get("bonus_amount")
+        updated = update_attendance_bonus_amount(amt)
+        return jsonify({"message": "Attendance bonus updated", "bonus_amount": updated})
     except Exception as e:
         return jsonify({"message": str(e)}), 400
     
@@ -1664,7 +1811,7 @@ def shutdown_server():
 
 if __name__ == "__main__":
     # threading.Timer(1.0, open_browser).start()
-    app.run(host="127.0.0.1", port=5000, debug=False, use_reloader=False)
+    app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=True)
     # ---------------------------------------------------------
     # SESSION CONFIGURATION
     # ---------------------------------------------------------

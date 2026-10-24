@@ -587,3 +587,49 @@ def get_audit_logs(limit=200):
     finally:
         cursor.close()
         conn.close()
+
+def get_attendance_bonus_amount():
+    """
+    Get company-wide attendance bonus amount from system_settings.
+    Default: 1000.0
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT setting_value FROM system_settings WHERE setting_key = 'attendance_bonus_amount'")
+        row = cursor.fetchone()
+        if row and row[0]:
+            try:
+                return float(row[0])
+            except (ValueError, TypeError):
+                return 1000.0
+        return 1000.0
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def update_attendance_bonus_amount(amount):
+    """
+    Update company-wide attendance bonus amount in system_settings.
+    """
+    try:
+        val = float(amount if amount is not None else 0)
+        if val < 0:
+            raise ValueError("Bonus amount cannot be negative")
+    except (TypeError, ValueError):
+        raise ValueError("Invalid bonus amount. Must be a non-negative number.")
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            INSERT INTO system_settings (setting_key, setting_value)
+            VALUES ('attendance_bonus_amount', ?)
+            ON CONFLICT(setting_key) DO UPDATE SET setting_value = excluded.setting_value
+        """, (str(val),))
+        conn.commit()
+        return val
+    finally:
+        cursor.close()
+        conn.close()

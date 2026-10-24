@@ -1,0 +1,4 @@
+- Attendance Bonus System: Automatic bonus awarded for 100% on-time attendance with zero grace usage.
+- Half-Day & Full-Day Calculations: Automatic leave deduction based on assigned weekly schedule.
+- High-Performance Desktop UI: Fast startup, persistent login sessions, and 60fps smooth sidebar transitions.
+- Dark Theme: Pitch-black minimalist styling and modernized receipt layouts.

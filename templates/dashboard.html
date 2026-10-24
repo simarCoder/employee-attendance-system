@@ -152,8 +152,21 @@
             class="sidebar-collapse-btn"
             onclick="toggleSidebarCollapse()"
             title="Collapse sidebar"
+            aria-label="Collapse sidebar"
           >
-            <span class="sidebar-collapse-icon">‹</span>
+            <svg
+              class="sidebar-collapse-icon"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
           </button>
         </div>
 
@@ -244,12 +257,11 @@
 
         <!-- Sidebar Footer -->
         <div class="sidebar-footer">
-          <div class="footer-logo">
-            <img
-              src="{{ url_for('static', filename='operon.png') }}"
-              alt="Operon Solutions"
-            />
-          </div>
+          <img
+            class="footer-logo"
+            src="{{ url_for('static', filename='operon.png') }}"
+            alt="Operon Solutions"
+          />
 
           <div class="footer-brand">
             <div class="footer-company">OPERON SOLUTIONS</div>
@@ -281,7 +293,9 @@
             © 2026 Operon Solutions.<br />
             All Rights Reserved.
           </div>
-          <div class="footer-version">Software version <strong>v{{ app_version }}</strong></div>
+          <div class="footer-version">
+            Software version <strong>v{{ app_version }}</strong>
+          </div>
         </div>
       </aside>
 
@@ -308,17 +322,6 @@
               <h3>Today's Date</h3>
               <div class="value" style="font-size: 1.05rem" id="stat-date">
                 Loading...
-              </div>
-            </div>
-
-            <!-- System Status -->
-            <div class="card stat-card dashboard-summary-card">
-              <h3>System Status</h3>
-              <div
-                class="value"
-                style="color: var(--success); font-size: 1.05rem"
-              >
-                Online
               </div>
             </div>
 
@@ -455,7 +458,14 @@
               >
                 →
               </button>
-              <input type="search" id="dashboard-attendance-search" class="form-control table-search" placeholder="Search name, ID, role, or status…" aria-label="Search attendance records" oninput="filterDashboardAttendance(this.value)" />
+              <input
+                type="search"
+                id="dashboard-attendance-search"
+                class="form-control table-search"
+                placeholder="Search name, ID, role, or status…"
+                aria-label="Search attendance records"
+                oninput="filterDashboardAttendance(this.value)"
+              />
             </div>
           </div>
 
@@ -674,7 +684,14 @@
 
             <!-- List Table (Bottom) -->
             <div class="employee-directory-table">
-              <input type="search" id="employee-directory-search" class="form-control table-search" placeholder="Search employees by name, ID, role, phone…" aria-label="Search employees" oninput="filterEmployeeDirectory(this.value)" />
+              <input
+                type="search"
+                id="employee-directory-search"
+                class="form-control table-search"
+                placeholder="Search employees by name, ID, role, phone…"
+                aria-label="Search employees"
+                oninput="filterEmployeeDirectory(this.value)"
+              />
               <table class="table employee-directory">
                 <thead>
                   <!-- <tr class="directory-group-header">
@@ -710,126 +727,79 @@
             <h2>Attendance Tracking</h2>
           </div>
           <nav class="attendance-nav" aria-label="Attendance sections">
-            <button type="button" class="attendance-nav-button active" aria-selected="true" onclick="showAttendancePanel('biometric', this)">Biometric</button>
-            <button type="button" class="attendance-nav-button" aria-selected="false" onclick="showAttendancePanel('individual', this)">Individual</button>
-            <button type="button" class="attendance-nav-button" aria-selected="false" onclick="showAttendancePanel('bulk', this)">Bulk Attendance</button>
+            <button
+              type="button"
+              class="attendance-nav-button active"
+              aria-selected="true"
+              onclick="showAttendancePanel('biometric', this)"
+            >
+              Biometric
+            </button>
+            <button
+              type="button"
+              class="attendance-nav-button"
+              aria-selected="false"
+              onclick="showAttendancePanel('individual', this)"
+            >
+              Individual
+            </button>
+            <button
+              type="button"
+              class="attendance-nav-button"
+              aria-selected="false"
+              onclick="showAttendancePanel('bulk', this)"
+            >
+              Bulk Attendance
+            </button>
           </nav>
 
           <div id="attendance-panel-biometric" class="attendance-panel active">
-          <div class="card">
-            <div
-              style="
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                gap: 1rem;
-                flex-wrap: wrap;
-              "
-            >
-              <div>
-                <h3>Biometric Device</h3>
-                <p style="color: var(--text-muted); margin-top: 0.3rem">
-                  Fetch attendance records from Secureye.
-                </p>
-              </div>
-
-              <button
-                id="secureye-sync-btn"
-                type="button"
-                class="btn btn-primary"
-                onclick="syncSecureye()"
-              >
-                Fetch Device Records
-              </button>
-            </div>
-          </div>
-          <div class="card">
-            <div
-              style="
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                gap: 1rem;
-                flex-wrap: wrap;
-              "
-            >
-              <div>
-                <h3>Biometric Employee Mapping</h3>
-
-                <p style="color: var(--text-muted); margin-top: 0.3rem">
-                  Assign Secureye device IDs to employees.
-                </p>
-              </div>
-            </div>
-
-            <div
-              style="
-                display: flex;
-                gap: 1rem;
-                align-items: flex-end;
-                flex-wrap: wrap;
-                margin-top: 1rem;
-              "
-            >
-              <div style="flex: 1; min-width: 220px">
-                <label class="form-label"> Employee </label>
-
-                <select id="biometric-employee-select" class="form-control">
-                  <option value="">Select Employee</option>
-                </select>
-              </div>
-
-              <div style="width: 180px">
-                <label class="form-label"> Secureye Card ID </label>
-
-                <input
-                  type="number"
-                  id="biometric-card-id"
-                  class="form-control"
-                  min="1"
-                  placeholder="e.g. 1"
-                />
-              </div>
-
-              <button
-                type="button"
-                class="btn btn-primary"
-                onclick="assignBiometricMapping()"
-              >
-                Assign
-              </button>
-            </div>
-
-            <input type="search" id="biometric-mapping-search" class="form-control table-search" placeholder="Search mappings by employee or device ID…" aria-label="Search biometric mappings" oninput="filterBiometricMappings(this.value)" />
-            <div class="table-container" style="margin-top: 1.5rem">
-              <table class="table">
-                <thead>
-                  <tr>
-                    <th>Employee</th>
-                    <th>Role</th>
-                    <th>Employee ID</th>
-                    <th>Secureye ID</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-
-                <tbody id="biometric-mapping-body">
-                  <tr>
-                    <td colspan="5" style="text-align: center">
-                      Loading mappings...
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-          </div>
-
-          <div id="attendance-panel-individual" class="attendance-panel">
-          <div class="section-stack">
-            <!-- 1. Individual Check-In Card -->
             <div class="card">
-              <h3>Individual Entry</h3>
+              <div
+                style="
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                  gap: 1rem;
+                  flex-wrap: wrap;
+                "
+              >
+                <div>
+                  <h3>Biometric Device</h3>
+                  <p style="color: var(--text-muted); margin-top: 0.3rem">
+                    Fetch attendance records from Secureye.
+                  </p>
+                </div>
+
+                <button
+                  id="secureye-sync-btn"
+                  type="button"
+                  class="btn btn-primary"
+                  onclick="syncSecureye()"
+                >
+                  Fetch Device Records
+                </button>
+              </div>
+            </div>
+            <div class="card">
+              <div
+                style="
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                  gap: 1rem;
+                  flex-wrap: wrap;
+                "
+              >
+                <div>
+                  <h3>Biometric Employee Mapping</h3>
+
+                  <p style="color: var(--text-muted); margin-top: 0.3rem">
+                    Assign Secureye device IDs to employees.
+                  </p>
+                </div>
+              </div>
+
               <div
                 style="
                   display: flex;
@@ -839,96 +809,367 @@
                   margin-top: 1rem;
                 "
               >
-                <!-- EMPLOYEE SELECTOR -->
-                <div style="flex: 1; min-width: 250px">
-                  <label class="form-label">Select Employee</label>
-                  <select id="att-employee-select" class="form-control">
-                    <option>Loading...</option>
+                <div style="flex: 1; min-width: 220px">
+                  <label class="form-label"> Employee </label>
+
+                  <select id="biometric-employee-select" class="form-control">
+                    <option value="">Select Employee</option>
                   </select>
                 </div>
 
-                <!-- ADMIN/HEAD ONLY: TIME & DATE OVERRIDE -->
-                <div class="admin-only" style="display: none; min-width: 150px">
-                  <label class="form-label" style="color: var(--primary)"
-                    >Manual Date</label
-                  >
-                  <input
-                    type="date"
-                    id="att-manual-date"
-                    class="form-control"
-                    style="border-color: var(--primary)"
-                  />
-                </div>
+                <div style="width: 180px">
+                  <label class="form-label"> Secureye Card ID </label>
 
-                <div class="admin-only" style="display: none; min-width: 130px">
-                  <label class="form-label" style="color: var(--primary)"
-                    >Manual Time</label
-                  >
                   <input
-                    type="time"
-                    id="att-manual-time"
+                    type="number"
+                    id="biometric-card-id"
                     class="form-control"
-                    style="border-color: var(--primary)"
+                    min="1"
+                    placeholder="e.g. 1"
                   />
                 </div>
 
                 <button
                   type="button"
-                  onclick="handleCheckIn()"
                   class="btn btn-primary"
+                  onclick="assignBiometricMapping()"
                 >
-                  Check In
-                </button>
-                <button
-                  type="button"
-                  onclick="handleCheckOut()"
-                  class="btn"
-                  style="
-                    background: var(--bg-input);
-                    color: var(--text-main);
-                    border: 1px solid var(--border);
-                  "
-                >
-                  Check Out
+                  Assign
                 </button>
               </div>
-            </div>
 
-            <!-- 2. Individual Logs Table -->
-            <div class="card individual-attendance-card">
-              <div class="individual-attendance-heading">
-                <div>
-                  <h3>Individual Attendance</h3>
-                  <p class="individual-attendance-caption" id="individual-attendance-caption">Select an employee to view monthly records</p>
-                </div>
-                <div class="individual-attendance-tools">
-                  <input type="search" id="individual-attendance-search" class="form-control table-search" placeholder="Search this month…" aria-label="Search monthly attendance" oninput="filterIndividualAttendance(this.value)" />
-                  <div class="individual-month-control" aria-label="Attendance month">
-                    <button type="button" id="individual-attendance-previous" class="btn dashboard-period-btn" aria-label="Previous month" title="Previous month">←</button>
-                    <input type="month" id="individual-attendance-month" class="form-control" aria-label="Select attendance month">
-                    <button type="button" id="individual-attendance-next" class="btn dashboard-period-btn" aria-label="Next month" title="Next month">→</button>
-                  </div>
-                </div>
-              </div>
-              <div class="individual-attendance-scroll" role="region" aria-label="Monthly attendance records" tabindex="0">
+              <input
+                type="search"
+                id="biometric-mapping-search"
+                class="form-control table-search"
+                placeholder="Search mappings by employee or device ID…"
+                aria-label="Search biometric mappings"
+                oninput="filterBiometricMappings(this.value)"
+              />
+              <div class="table-container" style="margin-top: 1.5rem">
                 <table class="table">
                   <thead>
                     <tr>
-                      <th>Date</th>
-                      <th>Check In</th>
-                      <th>Check Out</th>
-                      <th>Worked Hours</th>
+                      <th>Employee</th>
+                      <th>Role</th>
+                      <th>Employee ID</th>
+                      <th>Secureye ID</th>
+                      <th>Action</th>
                     </tr>
                   </thead>
-                  <tbody id="attendance-table-body">
+
+                  <tbody id="biometric-mapping-body">
                     <tr>
-                      <td colspan="4" class="individual-attendance-empty">Select an employee to view records</td>
+                      <td colspan="5" style="text-align: center">
+                        Loading mappings...
+                      </td>
                     </tr>
                   </tbody>
                 </table>
               </div>
             </div>
           </div>
+
+          <div id="attendance-panel-individual" class="attendance-panel">
+            <div class="section-stack">
+              <!-- 1. Individual Check-In Card -->
+              <div class="card">
+                <h3>Individual Entry</h3>
+                <div
+                  style="
+                    display: flex;
+                    gap: 1rem;
+                    align-items: flex-end;
+                    flex-wrap: wrap;
+                    margin-top: 1rem;
+                  "
+                >
+                  <!-- EMPLOYEE SELECTOR -->
+                  <div style="flex: 1; min-width: 250px">
+                    <label class="form-label">Select Employee</label>
+                    <select id="att-employee-select" class="form-control">
+                      <option>Loading...</option>
+                    </select>
+                  </div>
+
+                  <!-- ADMIN/HEAD ONLY: TIME & DATE OVERRIDE -->
+                  <div
+                    class="admin-only"
+                    style="display: none; min-width: 150px"
+                  >
+                    <label class="form-label" style="color: var(--primary)"
+                      >Manual Date</label
+                    >
+                    <input
+                      type="date"
+                      id="att-manual-date"
+                      class="form-control"
+                      style="border-color: var(--primary)"
+                    />
+                  </div>
+
+                  <div
+                    class="admin-only"
+                    style="display: none; min-width: 130px"
+                  >
+                    <label class="form-label" style="color: var(--primary)"
+                      >Manual Time</label
+                    >
+                    <input
+                      type="time"
+                      id="att-manual-time"
+                      class="form-control"
+                      style="border-color: var(--primary)"
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    onclick="handleCheckIn()"
+                    class="btn btn-primary"
+                  >
+                    Check In
+                  </button>
+                  <button
+                    type="button"
+                    onclick="handleCheckOut()"
+                    class="btn"
+                    style="
+                      background: var(--bg-input);
+                      color: var(--text-main);
+                      border: 1px solid var(--border);
+                    "
+                  >
+                    Check Out
+                  </button>
+                </div>
+              </div>
+
+              <!-- 2. Individual Logs Table -->
+              <!-- 2. Individual Attendance / Pending Attendance -->
+              <div class="card individual-attendance-card">
+                <!-- HEADER -->
+                <div class="individual-attendance-heading">
+                  <div>
+                    <h3 id="individual-attendance-title">
+                      Individual Attendance
+                    </h3>
+
+                    <p
+                      class="individual-attendance-caption"
+                      id="individual-attendance-caption"
+                    >
+                      Select an employee to view monthly records
+                    </p>
+                  </div>
+
+                  <div class="individual-attendance-tools">
+                    <!-- NORMAL LOG TOOLS -->
+                    <div id="individual-log-tools" class="individual-log-tools">
+                      <input
+                        type="search"
+                        id="individual-attendance-search"
+                        class="form-control table-search"
+                        placeholder="Search this month…"
+                        aria-label="Search monthly attendance"
+                        oninput="filterIndividualAttendance(this.value)"
+                      />
+
+                      <div
+                        class="individual-month-control"
+                        aria-label="Attendance month"
+                      >
+                        <button
+                          type="button"
+                          id="individual-attendance-previous"
+                          class="btn dashboard-period-btn"
+                          aria-label="Previous month"
+                          title="Previous month"
+                        >
+                          ←
+                        </button>
+
+                        <input
+                          type="month"
+                          id="individual-attendance-month"
+                          class="form-control"
+                          aria-label="Select attendance month"
+                        />
+
+                        <button
+                          type="button"
+                          id="individual-attendance-next"
+                          class="btn dashboard-period-btn"
+                          aria-label="Next month"
+                          title="Next month"
+                        >
+                          →
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- PENDING TOGGLE -->
+                    <button
+                      type="button"
+                      id="pending-attendance-toggle"
+                      class="btn pending-attendance-toggle"
+                      onclick="togglePendingAttendance()"
+                    >
+                      <span>Pending</span>
+                      <span id="pending-attendance-count" class="pending-count">
+                        0
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- ========================= -->
+                <!-- INDIVIDUAL LOGS VIEW -->
+                <!-- ========================= -->
+
+                <div
+                  id="individual-logs-view"
+                  class="attendance-subview active"
+                >
+                  <div
+                    class="individual-attendance-scroll"
+                    role="region"
+                    aria-label="Monthly attendance records"
+                    tabindex="0"
+                  >
+                    <table class="table">
+                      <thead>
+                        <tr>
+                          <th>Date</th>
+                          <th>Check In</th>
+                          <th>Check Out</th>
+                          <th>Worked Hours</th>
+                        </tr>
+                      </thead>
+
+                      <tbody id="attendance-table-body">
+                        <tr>
+                          <td colspan="4" class="individual-attendance-empty">
+                            Select an employee to view records
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <!-- ========================= -->
+                <!-- PENDING ATTENDANCE VIEW -->
+                <!-- ========================= -->
+
+                <div
+                  id="pending-attendance-view"
+                  class="attendance-subview"
+                  hidden
+                >
+                  <div class="pending-attendance-info">
+                    <div>
+                      <strong>Incomplete Attendance</strong>
+
+                      <span>
+                        Review and correct missing or incorrect punches.
+                      </span>
+                    </div>
+
+                    <input
+                      type="search"
+                      id="pending-attendance-search"
+                      class="form-control table-search pending-attendance-search"
+                      placeholder="Search pending employees…"
+                      aria-label="Search pending attendance"
+                      oninput="filterPendingAttendance(this.value)"
+                    />
+                  </div>
+
+                  <div
+                    class="individual-attendance-scroll"
+                    role="region"
+                    aria-label="Pending attendance records"
+                    tabindex="0"
+                  >
+                    <table class="table pending-attendance-table">
+                      <thead>
+                        <tr>
+                          <th>Employee</th>
+                          <th>Date</th>
+                          <th>Check In</th>
+                          <th>Check Out</th>
+                        </tr>
+                      </thead>
+
+                      <tbody id="pending-attendance-body">
+                        <tr>
+                          <td colspan="4" class="individual-attendance-empty">
+                            Loading pending attendance...
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- 2. Pending Attendance -->
+            <!-- <div class="card pending-attendance-card">
+              <div
+                style="
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                  gap: 1rem;
+                  flex-wrap: wrap;
+                  margin-bottom: 1rem;
+                "
+              >
+                <div>
+                  <h3>Pending Attendance</h3>
+
+                  <p style="color: var(--text-muted); margin-top: 0.3rem">
+                    Complete missing check-in or check-out times.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  id="pending-attendance-refresh"
+                  class="btn"
+                  onclick="loadPendingAttendance()"
+                  style="
+                    background: var(--bg-input);
+                    color: var(--text-main);
+                    border: 1px solid var(--border);
+                  "
+                >
+                  ↻ Refresh
+                </button>
+              </div>
+
+              <div class="table-container">
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>Employee</th>
+                      <th>Date</th>
+                      <th>Check In</th>
+                      <th>Check Out</th>
+                    </tr>
+                  </thead>
+
+                  <tbody id="pending-attendance-body">
+                    <tr>
+                      <td colspan="4" class="individual-attendance-empty">
+                        Loading pending attendance...
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div> -->
           </div>
 
           <div id="attendance-panel-bulk" class="attendance-panel">
@@ -952,7 +1193,14 @@
                   Mark Present (0)
                 </button>
               </div>
-              <input type="search" id="bulk-attendance-search" class="form-control table-search" placeholder="Search active employees by name, ID, or role…" aria-label="Search bulk attendance employees" oninput="filterBulkAttendance(this.value)" />
+              <input
+                type="search"
+                id="bulk-attendance-search"
+                class="form-control table-search"
+                placeholder="Search active employees by name, ID, or role…"
+                aria-label="Search bulk attendance employees"
+                oninput="filterBulkAttendance(this.value)"
+              />
               <div class="table-container">
                 <table class="table">
                   <thead>
@@ -982,7 +1230,16 @@
             </div>
           </div>
 
-          <button type="button" class="attendance-top-button" id="attendance-go-top" aria-label="Go to top" title="Go to top" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">↑ <span>Top</span></button>
+          <button
+            type="button"
+            class="attendance-top-button"
+            id="attendance-go-top"
+            aria-label="Go to top"
+            title="Go to top"
+            onclick="window.scrollTo({ top: 0, behavior: 'smooth' })"
+          >
+            ↑ <span>Top</span>
+          </button>
         </section>
 
         <!-- 4. SALARY -->
@@ -996,7 +1253,10 @@
               <select id="salary-employee-select" class="form-control">
                 <option>Loading...</option>
               </select>
-              <small style="color:var(--text-muted);">Choose All Employees to prepare the monthly payroll register.</small>
+              <small style="color: var(--text-muted)"
+                >Choose All Employees to prepare the monthly payroll
+                register.</small
+              >
             </div>
             <div class="form-group">
               <label class="form-label">Select Period</label>
@@ -1030,8 +1290,18 @@
                 View Payroll
               </button>
             </div>
-            <div style="display:flex;gap:1rem;margin-top:.75rem;">
-              <button type="button" onclick="downloadSelectedSalaryPdf()" class="btn" style="flex:1;background:var(--bg-input);color:var(--text-main);border:1px solid var(--border);">
+            <div style="display: flex; gap: 1rem; margin-top: 0.75rem">
+              <button
+                type="button"
+                onclick="downloadSelectedSalaryPdf()"
+                class="btn"
+                style="
+                  flex: 1;
+                  background: var(--bg-input);
+                  color: var(--text-main);
+                  border: 1px solid var(--border);
+                "
+              >
                 Download PDF
               </button>
             </div>
@@ -1045,7 +1315,14 @@
         <section id="employee-profile" class="section">
           <div id="profile-list-view" class="card">
             <h3>Select Employee</h3>
-            <input type="search" id="profile-employee-search" class="form-control table-search" placeholder="Search by name, ID, or role…" aria-label="Search employees for profile" oninput="filterProfileEmployeeList(this.value)" />
+            <input
+              type="search"
+              id="profile-employee-search"
+              class="form-control table-search"
+              placeholder="Search by name, ID, or role…"
+              aria-label="Search employees for profile"
+              oninput="filterProfileEmployeeList(this.value)"
+            />
             <table class="table">
               <thead>
                 <tr>
@@ -1129,7 +1406,14 @@
             </div>
             <div class="card">
               <h3>Documents</h3>
-              <input type="search" id="employee-documents-search" class="form-control table-search" placeholder="Search documents by type, number, or file…" aria-label="Search employee documents" oninput="filterTableBodyRows('employee-docs-body', this.value)" />
+              <input
+                type="search"
+                id="employee-documents-search"
+                class="form-control table-search"
+                placeholder="Search documents by type, number, or file…"
+                aria-label="Search employee documents"
+                oninput="filterTableBodyRows('employee-docs-body', this.value)"
+              />
               <div class="table-container">
                 <table class="table">
                   <thead>
@@ -1505,6 +1789,45 @@
             </button>
           </div>
 
+          <!-- ATTENDANCE BONUS CONFIGURATION -->
+          <div class="card" style="max-width: 500px">
+            <h3>Attendance Bonus Configuration</h3>
+            <p
+              style="
+                color: var(--text-muted);
+                font-size: 0.9rem;
+                margin-bottom: 1rem;
+              "
+            >
+              Configure the company-wide attendance bonus awarded to employees
+              with full attendance (no holidays, no grace used, on-time or
+              overtimed arrival and checkout on all scheduled days).
+            </p>
+            <form onsubmit="saveBonusConfig(event)">
+              <div class="form-group">
+                <label class="form-label" for="setting-bonus-amount">
+                  Monthly Bonus Amount (₹)
+                </label>
+                <input
+                  type="number"
+                  id="setting-bonus-amount"
+                  class="form-control"
+                  min="0"
+                  step="0.01"
+                  placeholder="1000.00"
+                  required
+                />
+              </div>
+              <button
+                type="submit"
+                class="btn btn-primary"
+                style="margin-top: 0.5rem"
+              >
+                Save Bonus Amount
+              </button>
+            </form>
+          </div>
+
           <div
             class="card system-user-management"
             style="max-width: 500px; display: none"
@@ -1559,7 +1882,16 @@
             style="display: none; margin-top: 2rem"
           >
             <h3>User Management</h3>
-            <input type="search" id="system-users-search" class="form-control table-search" placeholder="Search users by username, ID, or role…" aria-label="Search system users" oninput="filterTableBodyRows('system-users-table-body', this.value)" />
+            <input
+              type="search"
+              id="system-users-search"
+              class="form-control table-search"
+              placeholder="Search users by username, ID, or role…"
+              aria-label="Search system users"
+              oninput="
+                filterTableBodyRows('system-users-table-body', this.value)
+              "
+            />
             <div class="table-container">
               <table class="table">
                 <thead>
@@ -1598,10 +1930,9 @@
     <!-- New Script -->
 
     <script>
-      document.getElementById("stat-date").innerText =
-        formatDateDDMMYYYY(
-          `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-${String(new Date().getDate()).padStart(2, "0")}`,
-        );
+      document.getElementById("stat-date").innerText = formatDateDDMMYYYY(
+        `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-${String(new Date().getDate()).padStart(2, "0")}`,
+      );
 
       // --- SIDEBAR LOGIC ---
       function toggleSidebar() {
@@ -1645,7 +1976,7 @@
       function toggleTheme() {
         const html = document.documentElement;
         const current = html.getAttribute("data-theme");
-        const next = current === "dark" ? "light" : "dark";
+        const next = current === "light" ? "dark" : "light";
 
         html.setAttribute("data-theme", next);
         localStorage.setItem("theme", next);
@@ -1831,6 +2162,12 @@
         const collapsed = dashboard.classList.contains("sidebar-collapsed");
 
         localStorage.setItem("sidebarCollapsed", collapsed ? "1" : "0");
+        const btn = document.querySelector(".sidebar-collapse-btn");
+        if (btn) {
+          const label = collapsed ? "Expand sidebar" : "Collapse sidebar";
+          btn.setAttribute("title", label);
+          btn.setAttribute("aria-label", label);
+        }
       }
 
       document.addEventListener("DOMContentLoaded", () => {
@@ -1838,6 +2175,11 @@
 
         if (dashboard && localStorage.getItem("sidebarCollapsed") === "1") {
           dashboard.classList.add("sidebar-collapsed");
+          const btn = document.querySelector(".sidebar-collapse-btn");
+          if (btn) {
+            btn.setAttribute("title", "Expand sidebar");
+            btn.setAttribute("aria-label", "Expand sidebar");
+          }
         }
       });
 

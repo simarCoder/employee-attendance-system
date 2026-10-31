@@ -470,6 +470,12 @@ def employee_db():
         VALUES ('attendance_bonus_amount', '1000')
     """)
 
+    # Seed Default Checkout Grace Minutes (15)
+    cursor.execute("""
+        INSERT OR IGNORE INTO system_settings (setting_key, setting_value)
+        VALUES ('checkout_grace_minutes', '15')
+    """)
+
     # =========================
     # DOCUMENT TABLES
     # =========================

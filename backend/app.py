@@ -86,7 +86,9 @@ from backend.services.settings import (
     get_secureye_config,
     update_secureye_config,
     get_attendance_bonus_amount,
-    update_attendance_bonus_amount
+    update_attendance_bonus_amount,
+    get_checkout_grace_minutes,
+    update_checkout_grace_minutes
 )
 
 
@@ -874,9 +876,10 @@ def update_pending_attendance_route():
 # -------------------------
 @app.route("/salary/generate", methods=["POST"])
 def generate_salary_route():
-    data = request.json
+    data = request.json or {}
     try:
-        generate_salary(data.get("employee_id"), data.get("month"), data.get("role"))
+        role = data.get("role") or session.get("role")
+        generate_salary(data.get("employee_id"), data.get("month"), role)
         return jsonify({"message": "Salary generated", "status": "new"})
     except Exception as e:
         if "already generated" in str(e):
@@ -903,10 +906,11 @@ def generate_salary_register_route():
     for employee_id in employee_ids:
         try:
             saved_record = get_salary(employee_id, month)
-            if saved_record and saved_record.get("locked") == 1 and data.get("role") != "head":
+            user_role = str(data.get("role") or session.get("role") or "").lower()
+            if saved_record and saved_record.get("locked") == 1 and user_role not in ("head", "developer"):
                 # Finalized payroll remains unchanged for non-head users.
                 continue
-            generate_salary(employee_id, month, data.get("role"))
+            generate_salary(employee_id, month, user_role)
         except Exception as exc:
             errors.append({"employee_id": employee_id, "message": str(exc)})
     active_ids = set(employee_ids)
@@ -989,13 +993,14 @@ def get_salary_records_route():
 
 @app.route("/salary/update", methods=["POST"])
 def update_generated_salary_route():
-    data = request.json
+    data = request.json or {}
     try:
+        role = data.get("role") or session.get("role")
         update_salary_details(
             data.get("employee_id"), 
             data.get("month"), 
             data.get("total_salary"),
-            data.get("role") 
+            role
         )
         return jsonify({"message": "Salary updated successfully"})
     except Exception as e:
@@ -1217,6 +1222,29 @@ def update_bonus_route():
         amt = request.json.get("bonus_amount")
         updated = update_attendance_bonus_amount(amt)
         return jsonify({"message": "Attendance bonus updated", "bonus_amount": updated})
+    except Exception as e:
+        return jsonify({"message": str(e)}), 400
+
+
+@app.route("/settings/checkout-grace", methods=["GET"])
+def get_checkout_grace_route():
+    try:
+        grace = get_checkout_grace_minutes()
+        return jsonify({"checkout_grace_minutes": grace})
+    except Exception as e:
+        return jsonify({"message": str(e)}), 500
+
+
+@app.route("/settings/checkout-grace", methods=["POST"])
+def update_checkout_grace_route():
+    role = session.get("role") or (request.json or {}).get("role")
+    user_role = str(role).lower() if role else ""
+    if user_role not in ("admin", "head", "developer"):
+        return jsonify({"message": "Unauthorized. Only Admin and Developer can change check-out grace."}), 403
+    try:
+        mins = (request.json or {}).get("checkout_grace_minutes")
+        updated = update_checkout_grace_minutes(mins)
+        return jsonify({"message": "Check-out grace updated successfully", "checkout_grace_minutes": updated})
     except Exception as e:
         return jsonify({"message": str(e)}), 400
     

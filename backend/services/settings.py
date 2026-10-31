@@ -633,3 +633,50 @@ def update_attendance_bonus_amount(amount):
     finally:
         cursor.close()
         conn.close()
+
+
+def get_checkout_grace_minutes():
+    """
+    Get company-wide checkout grace minutes from system_settings.
+    Default: 15
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT setting_value FROM system_settings WHERE setting_key = 'checkout_grace_minutes'")
+        row = cursor.fetchone()
+        if row and row[0] is not None:
+            try:
+                return int(row[0])
+            except (ValueError, TypeError):
+                return 15
+        return 15
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def update_checkout_grace_minutes(minutes):
+    """
+    Update company-wide checkout grace minutes in system_settings.
+    """
+    try:
+        val = int(minutes if minutes is not None else 0)
+        if val < 0:
+            raise ValueError("Checkout grace minutes cannot be negative")
+    except (TypeError, ValueError):
+        raise ValueError("Invalid checkout grace minutes. Must be a non-negative integer.")
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            INSERT INTO system_settings (setting_key, setting_value)
+            VALUES ('checkout_grace_minutes', ?)
+            ON CONFLICT(setting_key) DO UPDATE SET setting_value = excluded.setting_value
+        """, (str(val),))
+        conn.commit()
+        return val
+    finally:
+        cursor.close()
+        conn.close()

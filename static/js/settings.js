@@ -6,10 +6,17 @@
 function loadSettings() {
   // loadWorkingDays();
 
-  const role = sessionStorage.getItem("role");
+  const role = (sessionStorage.getItem("role") || "").toLowerCase();
+  const isPrivileged = role === "admin" || role === "head" || role === "developer";
 
-  if (role === "admin" || role === "head") {
+  const graceCard = document.querySelector(".checkout-grace-management");
+  if (graceCard) {
+    graceCard.style.display = isPrivileged ? "block" : "none";
+  }
+
+  if (isPrivileged) {
     loadBonusConfig();
+    loadCheckoutGraceConfig();
   }
 
   if (role === "head") {
@@ -854,5 +861,47 @@ async function saveBonusConfig(event) {
     }
   } catch (err) {
     if (window.showToast) showToast("Server error updating bonus", "error");
+  }
+}
+
+async function loadCheckoutGraceConfig() {
+  try {
+    const res = await fetch(`${API_BASE}/settings/checkout-grace`);
+    const data = await res.json();
+    if (res.ok) {
+      const input = document.getElementById("setting-checkout-grace");
+      if (input) {
+        input.value = parseInt(data.checkout_grace_minutes || 0, 10);
+      }
+    }
+  } catch (err) {
+    console.error("Failed to load checkout grace config:", err);
+  }
+}
+
+async function saveCheckoutGraceConfig(event) {
+  if (event) event.preventDefault();
+  const input = document.getElementById("setting-checkout-grace");
+  const grace = parseInt(input?.value || 0, 10);
+
+  if (isNaN(grace) || grace < 0) {
+    if (window.showToast) showToast("Please enter a valid non-negative grace minutes", "error");
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/settings/checkout-grace`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ checkout_grace_minutes: grace }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      if (window.showToast) showToast("Check-out grace updated successfully", "success");
+    } else {
+      if (window.showToast) showToast(data.message || "Failed to update check-out grace", "error");
+    }
+  } catch (err) {
+    if (window.showToast) showToast("Server error updating check-out grace", "error");
   }
 }

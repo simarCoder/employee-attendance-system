@@ -1,5 +1,6 @@
 from datetime import datetime, date, timedelta
 from backend.database import get_connection
+from backend.services.settings import get_checkout_grace_minutes
 
 
 #=====================================================================
@@ -610,6 +611,9 @@ def get_attendance_by_date(target_date):
             e.role,
             e.working_weekdays,
             e.daily_hours,
+            COALESCE(e.late_grace_minutes, 0),
+            e.expected_check_in,
+            e.expected_check_out,
             a.date,
             a.check_in,
             a.check_out,
@@ -634,6 +638,7 @@ def get_attendance_by_date(target_date):
 
     result = []
 
+    checkout_grace = get_checkout_grace_minutes()
     for row in rows:
         (
             employee_id,
@@ -641,6 +646,9 @@ def get_attendance_by_date(target_date):
             role,
             working_weekdays,
             daily_hours,
+            late_grace_minutes,
+            expected_check_in,
+            expected_check_out,
             attendance_date,
             check_in,
             check_out,
@@ -669,6 +677,10 @@ def get_attendance_by_date(target_date):
             "name": name,
             "role": role,
             "daily_hours": daily_hours,
+            "late_grace_minutes": late_grace_minutes,
+            "expected_check_in": expected_check_in,
+            "expected_check_out": expected_check_out,
+            "checkout_grace_minutes": checkout_grace,
             "date": target_date,
             "check_in": check_in,
             "check_out": check_out,
@@ -713,7 +725,10 @@ def get_attendance_by_range(start_date, end_date):
             name,
             role,
             working_weekdays,
-            daily_hours
+            daily_hours,
+            COALESCE(late_grace_minutes, 0),
+            expected_check_in,
+            expected_check_out
         FROM employees
         WHERE status = 'active'
         ORDER BY employee_id ASC
@@ -783,12 +798,16 @@ def get_attendance_by_range(start_date, end_date):
     ):
         current_date_string = current_date.isoformat()
 
+        checkout_grace = get_checkout_grace_minutes()
         for (
             employee_id,
             name,
             role,
             working_weekdays,
-            daily_hours
+            daily_hours,
+            late_grace_minutes,
+            expected_check_in,
+            expected_check_out
         ) in employees:
 
             # IMPORTANT:
@@ -833,6 +852,10 @@ def get_attendance_by_range(start_date, end_date):
                 "name": name,
                 "role": role,
                 "daily_hours": daily_hours,
+                "late_grace_minutes": late_grace_minutes,
+                "expected_check_in": expected_check_in,
+                "expected_check_out": expected_check_out,
+                "checkout_grace_minutes": checkout_grace,
                 "date": current_date_string,
                 "check_in": check_in,
                 "check_out": check_out,

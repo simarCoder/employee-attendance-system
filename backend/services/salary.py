@@ -1,4 +1,5 @@
 from backend.database import get_connection
+from backend.services.settings import get_checkout_grace_minutes
 from datetime import datetime, date, timedelta
 import calendar
 from decimal import Decimal, ROUND_HALF_UP
@@ -119,7 +120,9 @@ def evaluate_day_attendance(
     check_in=None,
     check_out=None,
     expected_check_in=None,
+    expected_check_out=None,
     late_grace_minutes=0,
+    checkout_grace_minutes=0,
 ):
     """
     Evaluate a single day's attendance and return:
@@ -128,6 +131,7 @@ def evaluate_day_attendance(
     """
     daily_minutes = max(Decimal("0"), Decimal(str(daily_minutes or 0)))
     late_grace = max(Decimal("0"), Decimal(str(late_grace_minutes or 0)))
+    checkout_grace = max(Decimal("0"), Decimal(str(checkout_grace_minutes or 0)))
 
     # If one punch is present without the other, treat as Incomplete (0.0 credit)
     if (check_in and not check_out) or (check_out and not check_in):
@@ -139,11 +143,21 @@ def evaluate_day_attendance(
 
     full_day_threshold = max(
         daily_minutes * HALF_DAY_MIN_RATIO,
-        (daily_minutes * FULL_DAY_MIN_RATIO) - late_grace,
+        (daily_minutes * FULL_DAY_MIN_RATIO) - late_grace - checkout_grace,
     )
     half_day_threshold = daily_minutes * HALF_DAY_MIN_RATIO
 
-    if effective_worked >= full_day_threshold:
+    completed_shift = False
+    if expected_check_in and expected_check_out and check_in and check_out:
+        exp_in_mins = _parse_time_to_minutes(expected_check_in)
+        exp_out_mins = _parse_time_to_minutes(expected_check_out)
+        act_in_mins = _parse_time_to_minutes(check_in)
+        act_out_mins = _parse_time_to_minutes(check_out)
+        if exp_in_mins is not None and exp_out_mins is not None and act_in_mins is not None and act_out_mins is not None:
+            if act_in_mins <= (exp_in_mins + int(late_grace)) and act_out_mins >= (exp_out_mins - int(checkout_grace)):
+                completed_shift = True
+
+    if completed_shift or effective_worked >= full_day_threshold:
         day_credit = Decimal("1.0")
         status = "Full Day"
     elif effective_worked >= half_day_threshold:
@@ -161,6 +175,15 @@ def evaluate_day_attendance(
                 day_credit = Decimal("0.5")
                 status = "Half Day"
 
+    # Downgrade Full Day to Half Day if employee punched out before checkout grace window
+    if day_credit == Decimal("1.0") and expected_check_out and check_out and checkout_grace >= 0:
+        expected_out_mins = _parse_time_to_minutes(expected_check_out)
+        actual_out_mins = _parse_time_to_minutes(check_out)
+        if expected_out_mins is not None and actual_out_mins is not None:
+            if actual_out_mins < (expected_out_mins - int(checkout_grace)):
+                day_credit = Decimal("0.5")
+                status = "Half Day"
+
     return day_credit, status
 
 
@@ -170,7 +193,9 @@ def calculate_holiday_deduction(
     daily_minutes,
     grace_holidays,
     expected_check_in=None,
+    expected_check_out=None,
     late_grace_minutes=0,
+    checkout_grace_minutes=0,
 ):
     """
     Score each scheduled date as:
@@ -215,7 +240,9 @@ def calculate_holiday_deduction(
             check_in=check_in,
             check_out=check_out,
             expected_check_in=expected_check_in,
+            expected_check_out=expected_check_out,
             late_grace_minutes=late_grace_minutes,
+            checkout_grace_minutes=checkout_grace_minutes,
         )
 
         worked_days += day_credit
@@ -269,6 +296,7 @@ def is_eligible_for_attendance_bonus(
     expected_check_in=None,
     expected_check_out=None,
     late_grace_minutes=0,
+    checkout_grace_minutes=0,
     absence_days=0,
     grace_holidays_used=0,
     half_days=0,
@@ -326,18 +354,27 @@ def is_eligible_for_attendance_bonus(
                 if in_mins > (exp_in_mins + grace_mins):
                     return False
 
-        # Early exit check (no early exiting)
+        checkout_grace = int(checkout_grace_minutes or 0)
+        # Early exit check (no early exiting beyond checkout grace)
         if expected_check_out:
             out_mins = _parse_time_to_minutes(check_out)
             exp_out_mins = _parse_time_to_minutes(expected_check_out)
             if out_mins is not None and exp_out_mins is not None:
-                if out_mins < exp_out_mins:
+                if out_mins < (exp_out_mins - checkout_grace):
                     return False
 
-        # Shift duration check (proper or overtimed)
+        # Shift duration check (proper or overtimed, allowing grace)
         if req_minutes > 0:
             eff_worked = int(_resolve_worked_minutes(record.get("worked_minutes"), check_in, check_out))
-            if eff_worked < req_minutes:
+            min_allowed = max(0, req_minutes - grace_mins - checkout_grace)
+            shift_fulfilled = (
+                expected_check_in and expected_check_out and
+                _parse_time_to_minutes(check_in) is not None and _parse_time_to_minutes(expected_check_in) is not None and
+                _parse_time_to_minutes(check_out) is not None and _parse_time_to_minutes(expected_check_out) is not None and
+                _parse_time_to_minutes(check_in) <= (_parse_time_to_minutes(expected_check_in) + grace_mins) and
+                _parse_time_to_minutes(check_out) >= (_parse_time_to_minutes(expected_check_out) - checkout_grace)
+            )
+            if not shift_fulfilled and eff_worked < min_allowed:
                 return False
 
     return True
@@ -468,8 +505,13 @@ def generate_salary(employee_id, month, role=None):
                 "check_out": check_out,
             }
 
+        max_att_date = max(
+            (date.fromisoformat(row[0]) for row in attendance_rows if row[0]),
+            default=None,
+        )
+
         if month_start > today:
-            period_end = month_start - timedelta(days=1)
+            period_end = min(month_end, max_att_date) if max_att_date else month_start - timedelta(days=1)
         elif month_end <= today:
             period_end = month_end
         else:
@@ -477,20 +519,29 @@ def generate_salary(employee_id, month, role=None):
                 (row for row in attendance_rows if row[0] == today.isoformat()),
                 None,
             )
-            period_end = today if today_row and today_row[3] else today - timedelta(days=1)
+            effective_today = today if today_row and today_row[3] else today - timedelta(days=1)
+            # If attendance records exist beyond today (e.g. populated/punched through month-end),
+            # include all recorded attendance dates so half days/absences are not missed.
+            if max_att_date and max_att_date > effective_today:
+                period_end = min(month_end, max_att_date)
+            else:
+                period_end = effective_today
 
         period_working_dates = _scheduled_dates(
             month_start, min(period_end, month_end), weekdays
         )
         expected_working_days_for_period = len(period_working_dates)
 
+        checkout_grace_minutes = get_checkout_grace_minutes()
         holiday_metrics = calculate_holiday_deduction(
             expected_working_dates=period_working_dates,
             attendance_by_date=attendance_by_date,
             daily_minutes=daily_hours * 60.0,
             grace_holidays=grace_holidays,
             expected_check_in=expected_check_in,
+            expected_check_out=expected_check_out,
             late_grace_minutes=late_grace_minutes,
+            checkout_grace_minutes=checkout_grace_minutes,
         )
 
         full_days = holiday_metrics["full_days"]
@@ -546,6 +597,7 @@ def generate_salary(employee_id, month, role=None):
             expected_check_in=expected_check_in,
             expected_check_out=expected_check_out,
             late_grace_minutes=late_grace_minutes,
+            checkout_grace_minutes=checkout_grace_minutes,
             absence_days=absence_days,
             grace_holidays_used=grace_holidays_used,
             half_days=half_days,
@@ -583,10 +635,11 @@ def generate_salary(employee_id, month, role=None):
         if existing:
             salary_id, current_locked_status, _ = existing
 
+            user_role = str(role).lower() if role else ""
             if (
                 current_locked_status == 1
                 and lock_value == 1
-                and role != "head"
+                and user_role not in ("head", "developer")
             ):
                 raise Exception(
                     "Salary already locked for this month. "
@@ -1010,7 +1063,8 @@ def update_salary_details(employee_id, month, new_salary, role):
 
     is_locked = row[0]
 
-    if is_locked == 1 and role != 'head':
+    user_role = str(role).lower() if role else ""
+    if is_locked == 1 and user_role not in ('head', 'developer'):
         cursor.close()
         conn.close()
         raise Exception("Salary is locked. Only Head Developer can edit.")

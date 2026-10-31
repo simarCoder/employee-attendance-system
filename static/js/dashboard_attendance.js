@@ -70,6 +70,16 @@ function formatDuration(minutes) {
   return `${hours}h ${mins}m`;
 }
 
+function parseDashboardTimeToMinutes(timeStr) {
+  if (!timeStr || typeof timeStr !== "string") return null;
+  const parts = timeStr.trim().split(":");
+  if (parts.length < 2) return null;
+  const h = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10);
+  if (isNaN(h) || isNaN(m)) return null;
+  return h * 60 + m;
+}
+
 function resolveDashboardStatus(record) {
   const rawStatus = record.status || "-";
   if (
@@ -78,6 +88,9 @@ function resolveDashboardStatus(record) {
     (!record.check_in && record.check_out)
   ) {
     return "Incomplete";
+  }
+  if (!record.check_in && !record.check_out) {
+    return rawStatus === "Off Day" ? "Off Day" : "Absent";
   }
   if (
     record.worked_minutes !== null &&
@@ -89,8 +102,47 @@ function resolveDashboardStatus(record) {
     const workedMins = Number(record.worked_minutes);
     const dailyMins = Number(record.daily_hours) * 60;
     const graceMins = Number(record.late_grace_minutes || 0);
-    const fullDayMins = Math.max(dailyMins * 0.5, dailyMins - graceMins);
+    const checkoutGraceMins = Number(
+      record.checkout_grace_minutes !== undefined && record.checkout_grace_minutes !== null
+        ? record.checkout_grace_minutes
+        : (window.checkoutGraceMinutes || 15)
+    );
+    const fullDayMins = Math.max(
+      dailyMins * 0.5,
+      dailyMins - graceMins - checkoutGraceMins
+    );
     const halfDayMins = dailyMins * 0.5;
+
+    // Shift window check if expected in and out are configured
+    if (
+      record.check_in &&
+      record.check_out &&
+      record.expected_check_in &&
+      record.expected_check_out
+    ) {
+      const actualIn = parseDashboardTimeToMinutes(record.check_in);
+      const actualOut = parseDashboardTimeToMinutes(record.check_out);
+      const expIn = parseDashboardTimeToMinutes(record.expected_check_in);
+      const expOut = parseDashboardTimeToMinutes(record.expected_check_out);
+
+      if (actualIn !== null && actualOut !== null && expIn !== null && expOut !== null) {
+        const onTimeIn = actualIn <= expIn + graceMins;
+        const onTimeOut = actualOut >= expOut - checkoutGraceMins;
+
+        // Left early beyond checkout grace window
+        if (!onTimeOut && workedMins >= halfDayMins) {
+          return "Half Day";
+        }
+        // Arrived late beyond late grace window
+        if (!onTimeIn && workedMins >= halfDayMins) {
+          return "Half Day";
+        }
+        // Completed scheduled shift within both grace allowances
+        if (onTimeIn && onTimeOut) {
+          return "Present";
+        }
+      }
+    }
 
     if (workedMins >= fullDayMins) {
       return "Present";

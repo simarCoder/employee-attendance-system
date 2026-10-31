@@ -1828,6 +1828,45 @@
             </form>
           </div>
 
+          <!-- CHECK-OUT GRACE PERIOD CONFIGURATION -->
+          <div class="card checkout-grace-management" style="max-width: 500px">
+            <h3>Check-Out Grace Period</h3>
+            <p
+              style="
+                color: var(--text-muted);
+                font-size: 0.9rem;
+                margin-bottom: 1rem;
+              "
+            >
+              Configure company-wide check-out grace minutes. Employees who exit
+              within this grace window before their scheduled departure time are
+              credited a Full Day without being downgraded to Half Day.
+            </p>
+            <form onsubmit="saveCheckoutGraceConfig(event)">
+              <div class="form-group">
+                <label class="form-label" for="setting-checkout-grace">
+                  Common Check-Out Grace (Minutes)
+                </label>
+                <input
+                  type="number"
+                  id="setting-checkout-grace"
+                  class="form-control"
+                  min="0"
+                  step="1"
+                  placeholder="15"
+                  required
+                />
+              </div>
+              <button
+                type="submit"
+                class="btn btn-primary"
+                style="margin-top: 0.5rem"
+              >
+                Save Grace Minutes
+              </button>
+            </form>
+          </div>
+
           <div
             class="card system-user-management"
             style="max-width: 500px; display: none"

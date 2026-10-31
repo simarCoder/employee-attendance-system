@@ -6,7 +6,38 @@ from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import mm
+import os
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+FONT_REGULAR = "Helvetica"
+FONT_BOLD = "Helvetica-Bold"
+
+def _init_pdf_fonts():
+    global FONT_REGULAR, FONT_BOLD
+    if "AppRupeeFont" in pdfmetrics.getRegisteredFontNames():
+        FONT_REGULAR = "AppRupeeFont"
+        FONT_BOLD = "AppRupeeFont-Bold"
+        return
+    candidates = [
+        ("C:/Windows/Fonts/segoeui.ttf", "C:/Windows/Fonts/segoeuib.ttf"),
+        ("C:/Windows/Fonts/arial.ttf", "C:/Windows/Fonts/arialbd.ttf"),
+        ("C:/Windows/Fonts/calibri.ttf", "C:/Windows/Fonts/calibrib.ttf"),
+        ("C:/Windows/Fonts/Nirmala.ttf", "C:/Windows/Fonts/NirmalaB.ttf"),
+    ]
+    for reg_path, bold_path in candidates:
+        if os.path.exists(reg_path) and os.path.exists(bold_path):
+            try:
+                pdfmetrics.registerFont(TTFont("AppRupeeFont", reg_path))
+                pdfmetrics.registerFont(TTFont("AppRupeeFont-Bold", bold_path))
+                FONT_REGULAR = "AppRupeeFont"
+                FONT_BOLD = "AppRupeeFont-Bold"
+                break
+            except Exception:
+                continue
+
+_init_pdf_fonts()
 
 # ==============================================================================
 # PDF SIZING & SPACING CONFIGURATION
@@ -123,27 +154,28 @@ def _month_label(month):
 
 
 def _styles():
+    _init_pdf_fonts()
     styles = getSampleStyleSheet()
     reg_cfg = PDF_CONFIG["register"]
     styles.add(ParagraphStyle(
-        name="PayrollBrand", parent=styles["Normal"], fontName="Helvetica-Bold",
+        name="PayrollBrand", parent=styles["Normal"], fontName=FONT_BOLD,
         fontSize=8.5, leading=11, textColor=ACCENT, alignment=TA_CENTER,
     ))
     styles.add(ParagraphStyle(
-        name="PayrollTitle", parent=styles["Title"], fontName="Helvetica-Bold",
+        name="PayrollTitle", parent=styles["Title"], fontName=FONT_BOLD,
         fontSize=18, leading=22, textColor=INK, alignment=TA_CENTER,
         spaceAfter=4,
     ))
     styles.add(ParagraphStyle(
-        name="PayrollSubtitle", parent=styles["Normal"], fontSize=9,
+        name="PayrollSubtitle", parent=styles["Normal"], fontName=FONT_REGULAR, fontSize=9,
         textColor=MUTED, alignment=TA_CENTER, leading=13,
     ))
     styles.add(ParagraphStyle(
-        name="PayrollHeader", parent=styles["Normal"], fontName="Helvetica-Bold",
+        name="PayrollHeader", parent=styles["Normal"], fontName=FONT_BOLD,
         fontSize=reg_cfg["header_font_size"], leading=reg_cfg["header_font_size"] + 2, textColor=colors.white,
     ))
     styles.add(ParagraphStyle(
-        name="PayrollCell", parent=styles["BodyText"], fontName="Helvetica",
+        name="PayrollCell", parent=styles["BodyText"], fontName=FONT_REGULAR,
         fontSize=reg_cfg["cell_font_size"], leading=reg_cfg["cell_font_size"] + 2, textColor=INK,
     ))
     return styles
@@ -204,12 +236,12 @@ def build_salary_pdf(records, month, employee=None):
         table.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), INK),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+            ("FONTNAME", (0, 0), (-1, 0), FONT_BOLD),
+            ("FONTNAME", (0, 1), (-1, -1), FONT_REGULAR),
             ("ALIGN", (1, 1), (1, -1), "RIGHT"),
             ("GRID", (0, 0), (-1, -1), 0.4, RULE),
             ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, PALE]),
-            ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+            ("FONTNAME", (0, -1), (-1, -1), FONT_BOLD),
             ("TEXTCOLOR", (0, -1), (-1, -1), INK),
             ("TOPPADDING", (0, 0), (-1, -1), cfg["earnings_cell_padding_y"]),
             ("BOTTOMPADDING", (0, 0), (-1, -1), cfg["earnings_cell_padding_y"]),
@@ -235,7 +267,8 @@ def build_salary_pdf(records, month, employee=None):
         detail.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), PALE),
             ("TEXTCOLOR", (0, 0), (-1, 0), INK),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTNAME", (0, 0), (-1, -1), FONT_REGULAR),
+            ("FONTNAME", (0, 0), (-1, 0), FONT_BOLD),
             ("GRID", (0, 0), (-1, -1), 0.4, RULE),
             ("FONTSIZE", (0, 0), (-1, -1), cfg["attendance_font_size"]),
             ("TOPPADDING", (0, 0), (-1, -1), cfg["attendance_cell_padding_y"]),
@@ -298,7 +331,9 @@ def build_salary_pdf(records, month, employee=None):
             ("GRID", (0, 0), (-1, -1), 0.35, RULE),
             ("ROWBACKGROUNDS", (0, 1), (-1, -2), [colors.white, PALE]),
             ("BACKGROUND", (0, -1), (-1, -1), PALE),
-            ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+            ("FONTNAME", (0, 0), (-1, -1), FONT_REGULAR),
+            ("FONTNAME", (0, 0), (-1, 0), FONT_BOLD),
+            ("FONTNAME", (0, -1), (-1, -1), FONT_BOLD),
             ("TEXTCOLOR", (0, -1), (-1, -1), INK),
             ("FONTSIZE", (0, 0), (-1, -1), reg_cfg["cell_font_size"]),
             ("ALIGN", (0, 1), (1, -1), "CENTER"),

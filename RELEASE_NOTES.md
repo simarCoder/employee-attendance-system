@@ -1,4 +1,4 @@
-- Attendance Bonus System: Automatic bonus awarded for 100% on-time attendance with zero grace usage.
-- Half-Day & Full-Day Calculations: Automatic leave deduction based on assigned weekly schedule.
-- High-Performance Desktop UI: Fast startup, persistent login sessions, and 60fps smooth sidebar transitions.
-- Dark Theme: Pitch-black minimalist styling and modernized receipt layouts.
+- Checkout Grace Setting – Admin can configure a company‑wide checkout‑grace (minutes) via Settings, Default = 15 min.
+- Fix: process_device_attendance() now skips updates for rows where check_in_source or check_out_source is "manual".
+- Result: Manual check‑in/out entries (e.g., pending check‑outs corrected by HR) are preserved during device syncs.
+- Full‑Month Payroll Evaluation – Salary generation now includes attendance up to the end of the month, fixing missing month‑end punches.

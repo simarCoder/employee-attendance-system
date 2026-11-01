@@ -1224,7 +1224,7 @@ def process_device_attendance(start_date=None, end_date=None):
 
             cursor.execute(
                 """
-                SELECT attendance_id
+                SELECT attendance_id, check_in_source, check_out_source
                 FROM attendance
                 WHERE employee_id = ?
                   AND date = ?
@@ -1279,7 +1279,12 @@ def process_device_attendance(start_date=None, end_date=None):
 
             else:
 
-                attendance_id = existing[0]
+                # existing now contains (attendance_id, check_in_source, check_out_source)
+                attendance_id, curr_in_src, curr_out_src = existing
+
+                # Do NOT overwrite rows that contain any manual entry
+                if curr_in_src == "manual" or curr_out_src == "manual":
+                    continue
 
                 cursor.execute(
                 """
